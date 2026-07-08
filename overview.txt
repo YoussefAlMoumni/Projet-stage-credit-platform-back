@@ -1,0 +1,81 @@
+Project Overview
+================
+
+This project is a local credit evaluation prototype built with LangGraph,
+LangChain Ollama, and Ollama-hosted DeepSeek models. It runs as a command-line
+application and evaluates a hardcoded credit dossier through a sequence of
+specialized analysis agents before producing a final supervisor report.
+
+Current Structure
+-----------------
+
+- run.bat
+  Activates the local virtual environment and launches the application with
+  python src/main.py.
+
+- src/main.py
+  Provides the CLI entrypoint, presents FAST and FULL execution modes, builds
+  the runtime configuration, initializes the sample dossier, invokes the graph,
+  and prints the final decision report.
+
+- src/graph.py
+  Defines the LangGraph workflow. The graph runs sequentially through four
+  worker agents, then a supervisor:
+
+  solvabilite -> historique -> garanties -> conformite -> superviseur
+
+- src/state.py
+  Defines the shared CreditState TypedDict used by the graph to carry input
+  fields, intermediate agent outputs, and the final report.
+
+Execution Modes
+---------------
+
+FAST mode is tuned to be more memory-conscious:
+
+- worker_ctx: 2048
+- worker_keep_alive: 0
+- supervisor_ctx: 4096
+- supervisor_keep_alive: 0
+
+FULL mode keeps the larger context and persistent cache behavior for heavier
+runs:
+
+- worker_ctx: 4096
+- worker_keep_alive: 300
+- supervisor_ctx: 8192
+- supervisor_keep_alive: 300
+
+Model Allocation
+----------------
+
+The current model split is:
+
+- Worker agents: deepseek-r1:8b
+- Supervisor agent: deepseek-r1:14b
+
+This keeps the recurring analysis steps lighter while reserving the stronger
+model for final synthesis.
+
+Recent Progress
+---------------
+
+- The project was analyzed and confirmed to have a compact structure: one
+  launcher, one CLI entrypoint, one graph definition, and one state contract.
+- A previous experiment moved all agents to deepseek-r1:14b with RAM execution,
+  but it consumed too much system memory and was reverted.
+- FAST mode was optimized by setting worker_keep_alive to 0 so worker models are
+  released immediately instead of being kept resident.
+- Output generation was capped with num_predict to reduce token growth and
+  memory pressure:
+  - Workers use num_predict=256.
+  - Supervisor uses num_predict=768.
+- The FAST/FULL menu labels were simplified by removing parenthesized
+  descriptions.
+
+Maintenance Rule
+----------------
+
+This file is the project progress overview. Whenever the project is modified,
+overview.txt should be updated to reflect the latest structure, behavior,
+configuration, and important decisions.
