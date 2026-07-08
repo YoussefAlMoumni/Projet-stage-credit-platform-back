@@ -1,0 +1,11 @@
+﻿venv/
+__pycache__/
+*.pyc
+.agents/
+target/
+*.class
+.settings/
+.project
+.classpath
+*.log
+.env
