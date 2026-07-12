@@ -47,10 +47,36 @@ ollama pull deepseek-r1:14b
 - `com.talan.creditplatform.controller`: REST APIs
 - `com.talan.creditplatform.desktop`: JavaFX Application and HTTP Clients
 
-## API Documentation
+## API Documentation & Manual Testing (`curl`)
 
-- `POST /api/auth/login` - Returns JWT token
-- `POST /api/dossiers` - Create a dossier
-- `POST /api/credit-requests/{siren}/evaluate?mode=FAST|FULL` - Triggers AI pipeline
-- `GET /api/credit-requests/{siren}/history` - History for a dossier
-- `GET /api/admin/users` - List all users (ROLE_ADMIN only)
+First, obtain a JWT token using the default admin or banker accounts:
+```bash
+# 1. Login to get JWT Token
+curl -X POST http://localhost:8081/api/auth/login \
+     -H "Content-Type: application/json" \
+     -d "{\"username\":\"admin\",\"password\":\"adminpass\"}"
+
+# (For Windows PowerShell, replace single quotes/escaping as needed, or use Postman)
+# Export the token for subsequent requests
+export TOKEN="<your_jwt_token_here>"
+```
+
+```bash
+# 2. Create a Dossier
+curl -X POST http://localhost:8081/api/dossiers \
+     -H "Content-Type: application/json" \
+     -H "Authorization: Bearer $TOKEN" \
+     -d "{\"siren\":\"123456789\", \"name\":\"Tech Corp\", \"typeClient\":\"Personne Morale\", \"montantDemande\":\"500000.0\", \"rawData\":\"{}\"}"
+
+# 3. Trigger Evaluation Pipeline (FAST mode)
+curl -X POST "http://localhost:8081/api/credit-requests/123456789/evaluate?mode=FAST" \
+     -H "Authorization: Bearer $TOKEN"
+
+# 4. View Evaluation History for a Dossier
+curl -X GET "http://localhost:8081/api/credit-requests/123456789/history" \
+     -H "Authorization: Bearer $TOKEN"
+
+# 5. List all users (Admin only)
+curl -X GET "http://localhost:8081/api/admin/users" \
+     -H "Authorization: Bearer $TOKEN"
+```

@@ -2,7 +2,7 @@ package com.talan.creditplatform.controller.rest;
 
 import com.talan.creditplatform.model.dto.LoginRequest;
 import com.talan.creditplatform.model.dto.LoginResponse;
-import com.talan.creditplatform.model.security.JwtService;
+import com.talan.creditplatform.security.JwtService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;

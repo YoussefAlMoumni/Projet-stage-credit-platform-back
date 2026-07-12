@@ -2,12 +2,15 @@ package com.talan.creditplatform;
 
 import com.talan.creditplatform.model.entity.Dossier;
 import com.talan.creditplatform.model.entity.Evaluation;
-import com.talan.creditplatform.model.repository.EvaluationRepository;
-import com.talan.creditplatform.model.repository.StageResultRepository;
-import com.talan.creditplatform.model.service.AnalystAgent;
-import com.talan.creditplatform.model.service.OllamaClient;
-import com.talan.creditplatform.model.service.PipelineOrchestrator;
-import com.talan.creditplatform.model.service.SupervisorAgent;
+import com.talan.creditplatform.repository.EvaluationRepository;
+import com.talan.creditplatform.repository.StageResultRepository;
+import com.talan.creditplatform.service.SolvabiliteAgent;
+import com.talan.creditplatform.service.HistoriqueAgent;
+import com.talan.creditplatform.service.GarantiesAgent;
+import com.talan.creditplatform.service.ConformiteAgent;
+import com.talan.creditplatform.service.OllamaClient;
+import com.talan.creditplatform.service.PipelineOrchestrator;
+import com.talan.creditplatform.service.SupervisorAgent;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -16,10 +19,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -34,15 +35,25 @@ class CreditPlatformApplicationTests {
     @Mock
     private StageResultRepository stageResultRepository;
 
-    private AnalystAgent analystAgent;
+    private SolvabiliteAgent solvabiliteAgent;
+    private HistoriqueAgent historiqueAgent;
+    private GarantiesAgent garantiesAgent;
+    private ConformiteAgent conformiteAgent;
     private SupervisorAgent supervisorAgent;
     private PipelineOrchestrator pipelineOrchestrator;
 
     @BeforeEach
     void setUp() {
-        analystAgent = new AnalystAgent(ollamaClient);
+        solvabiliteAgent = new SolvabiliteAgent(ollamaClient);
+        historiqueAgent = new HistoriqueAgent(ollamaClient);
+        garantiesAgent = new GarantiesAgent(ollamaClient);
+        conformiteAgent = new ConformiteAgent(ollamaClient);
         supervisorAgent = new SupervisorAgent(ollamaClient);
-        pipelineOrchestrator = new PipelineOrchestrator(analystAgent, supervisorAgent, evaluationRepository, stageResultRepository);
+        
+        pipelineOrchestrator = new PipelineOrchestrator(
+            solvabiliteAgent, historiqueAgent, garantiesAgent, conformiteAgent, 
+            supervisorAgent, evaluationRepository, stageResultRepository
+        );
     }
 
     @Test
@@ -53,7 +64,7 @@ class CreditPlatformApplicationTests {
 
         when(ollamaClient.generate(any())).thenReturn("MOCK_RESPONSE");
 
-        String response = analystAgent.runSolvabilite(dossier, 2048, "0s");
+        String response = solvabiliteAgent.run(dossier, 2048, "0s");
         
         assertEquals("MOCK_RESPONSE", response);
         verify(ollamaClient).generate(argThat(req -> 

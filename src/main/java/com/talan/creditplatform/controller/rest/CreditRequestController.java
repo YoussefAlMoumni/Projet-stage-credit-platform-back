@@ -3,10 +3,10 @@ package com.talan.creditplatform.controller.rest;
 import com.talan.creditplatform.model.entity.Dossier;
 import com.talan.creditplatform.model.entity.Evaluation;
 import com.talan.creditplatform.model.dto.EvaluationResultDto;
-import com.talan.creditplatform.model.repository.DossierRepository;
-import com.talan.creditplatform.model.repository.EvaluationRepository;
-import com.talan.creditplatform.model.repository.StageResultRepository;
-import com.talan.creditplatform.model.service.PipelineOrchestrator;
+import com.talan.creditplatform.repository.DossierRepository;
+import com.talan.creditplatform.repository.EvaluationRepository;
+import com.talan.creditplatform.repository.StageResultRepository;
+import com.talan.creditplatform.service.PipelineOrchestrator;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 

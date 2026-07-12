@@ -1,0 +1,95 @@
+package com.talan.creditplatform.service;
+
+import com.talan.creditplatform.model.entity.Dossier;
+import com.talan.creditplatform.model.entity.Evaluation;
+import com.talan.creditplatform.model.entity.StageResult;
+import com.talan.creditplatform.repository.EvaluationRepository;
+import com.talan.creditplatform.repository.StageResultRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+public class PipelineOrchestrator {
+
+    private static final Logger logger = LoggerFactory.getLogger(PipelineOrchestrator.class);
+
+    private final SolvabiliteAgent solvabiliteAgent;
+    private final HistoriqueAgent historiqueAgent;
+    private final GarantiesAgent garantiesAgent;
+    private final ConformiteAgent conformiteAgent;
+    private final SupervisorAgent supervisorAgent;
+    private final EvaluationRepository evaluationRepository;
+    private final StageResultRepository stageResultRepository;
+
+    public PipelineOrchestrator(SolvabiliteAgent solvabiliteAgent, HistoriqueAgent historiqueAgent, 
+                                GarantiesAgent garantiesAgent, ConformiteAgent conformiteAgent, 
+                                SupervisorAgent supervisorAgent,
+                                EvaluationRepository evaluationRepository, StageResultRepository stageResultRepository) {
+        this.solvabiliteAgent = solvabiliteAgent;
+        this.historiqueAgent = historiqueAgent;
+        this.garantiesAgent = garantiesAgent;
+        this.conformiteAgent = conformiteAgent;
+        this.supervisorAgent = supervisorAgent;
+        this.evaluationRepository = evaluationRepository;
+        this.stageResultRepository = stageResultRepository;
+    }
+
+    @Transactional
+    public Evaluation evaluate(Dossier dossier, String mode) {
+        int workerCtx = "FULL".equalsIgnoreCase(mode) ? 4096 : 2048;
+        String workerKeepAlive = "FULL".equalsIgnoreCase(mode) ? "300s" : "0s";
+        int supervisorCtx = "FULL".equalsIgnoreCase(mode) ? 8192 : 4096;
+        String supervisorKeepAlive = "FULL".equalsIgnoreCase(mode) ? "300s" : "0s";
+
+        Evaluation eval = new Evaluation();
+        eval.setDossier(dossier);
+        eval.setMode(mode);
+        eval = evaluationRepository.save(eval);
+
+        try {
+            logger.info("Starting pipeline for dossier {} with mode {}", dossier.getSiren(), mode);
+
+            String solvabiliteOut = runStage("solvabilite", eval, () -> solvabiliteAgent.run(dossier, workerCtx, workerKeepAlive));
+            String historiqueOut = runStage("historique", eval, () -> historiqueAgent.run(dossier, workerCtx, workerKeepAlive));
+            String garantiesOut = runStage("garanties", eval, () -> garantiesAgent.run(dossier, workerCtx, workerKeepAlive));
+            String conformiteOut = runStage("conformite", eval, () -> conformiteAgent.run(dossier, workerCtx, workerKeepAlive));
+
+            logger.info("Starting supervisor stage for dossier {}", dossier.getSiren());
+            long start = System.currentTimeMillis();
+            String finalReport = supervisorAgent.runSuperviseur(dossier, solvabiliteOut, historiqueOut, garantiesOut, conformiteOut, supervisorCtx, supervisorKeepAlive);
+            long duration = System.currentTimeMillis() - start;
+
+            eval.setFinalReport(finalReport);
+            evaluationRepository.save(eval);
+            
+            logger.info("Pipeline completed for dossier {} in {} ms", dossier.getSiren(), duration);
+            return eval;
+        } catch (Exception e) {
+            logger.error("Pipeline failed for dossier {}: {}", dossier.getSiren(), e.getMessage());
+            throw new RuntimeException("Pipeline evaluation failed", e);
+        }
+    }
+
+    private String runStage(String stageName, Evaluation eval, StageRunner runner) {
+        logger.info("Running stage: {}", stageName);
+        long start = System.currentTimeMillis();
+        String result = runner.run();
+        long duration = System.currentTimeMillis() - start;
+
+        StageResult sr = new StageResult();
+        sr.setEvaluation(eval);
+        sr.setStageName(stageName);
+        sr.setOutput(result);
+        sr.setDurationMs(duration);
+        stageResultRepository.save(sr);
+
+        return result;
+    }
+
+    @FunctionalInterface
+    private interface StageRunner {
+        String run();
+    }
+}

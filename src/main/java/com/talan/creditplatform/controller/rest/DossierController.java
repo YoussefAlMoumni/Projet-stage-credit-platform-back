@@ -1,7 +1,7 @@
 package com.talan.creditplatform.controller.rest;
 
 import com.talan.creditplatform.model.entity.Dossier;
-import com.talan.creditplatform.model.repository.DossierRepository;
+import com.talan.creditplatform.repository.DossierRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
