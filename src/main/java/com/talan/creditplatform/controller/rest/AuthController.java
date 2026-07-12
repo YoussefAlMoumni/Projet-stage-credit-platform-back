@@ -2,25 +2,40 @@ package com.talan.creditplatform.controller.rest;
 
 import com.talan.creditplatform.model.dto.LoginRequest;
 import com.talan.creditplatform.model.dto.LoginResponse;
+import com.talan.creditplatform.model.dto.RegisterRequest;
+import com.talan.creditplatform.model.entity.User;
+import com.talan.creditplatform.repository.UserRepository;
 import com.talan.creditplatform.security.JwtService;
+import java.util.Map;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/auth")
+@CrossOrigin(origins = {"http://localhost:4200", "http://127.0.0.1:4200"})
 public class AuthController {
 
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    public AuthController(AuthenticationManager authenticationManager, JwtService jwtService) {
+    public AuthController(
+            AuthenticationManager authenticationManager,
+            JwtService jwtService,
+            UserRepository userRepository,
+            PasswordEncoder passwordEncoder
+    ) {
         this.authenticationManager = authenticationManager;
         this.jwtService = jwtService;
+        this.userRepository = userRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @PostMapping("/login")
@@ -38,5 +53,38 @@ public class AuthController {
                 .orElse("ROLE_USER");
 
         return ResponseEntity.ok(new LoginResponse(token, role));
+    }
+
+    @PostMapping("/register")
+    public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
+        String username = request.getUsername() == null ? "" : request.getUsername().trim();
+        String password = request.getPassword() == null ? "" : request.getPassword();
+        String role = normalizeRole(request.getRole());
+
+        if (username.length() < 3 || password.length() < 4) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("message", "Username must be at least 3 characters and password at least 4 characters."));
+        }
+
+        if (userRepository.findByUsername(username).isPresent()) {
+            return ResponseEntity.status(409).body(Map.of("message", "That username is already registered."));
+        }
+
+        userRepository.save(new User(username, passwordEncoder.encode(password), role));
+
+        Authentication auth = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(username, password)
+        );
+        UserDetails userDetails = (UserDetails) auth.getPrincipal();
+        String token = jwtService.generateToken(userDetails);
+
+        return ResponseEntity.ok(new LoginResponse(token, role));
+    }
+
+    private String normalizeRole(String requestedRole) {
+        if ("ROLE_ADMIN".equals(requestedRole)) {
+            return "ROLE_ADMIN";
+        }
+        return "ROLE_BANQUIER";
     }
 }
