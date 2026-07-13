@@ -27,7 +27,7 @@ Start-Process powershell -ArgumentList `
     "-NoExit", "-Command", `
     "Write-Host '[ BACKEND ]' -ForegroundColor Cyan; " + `
     "Set-Location '$PROJECT_DIR'; " + `
-    "`$env:DB_USERNAME='postgre'; " + `
+    "`$env:DB_USERNAME='postgres'; " + `
     "`$env:DB_PASSWORD='53649713'; " + `
     "mvn spring-boot:run" `
     -PassThru | Out-Null
