@@ -1,7 +1,7 @@
 package com.talan.creditplatform;
 
-import com.talan.creditplatform.model.dto.OllamaOptions;
-import com.talan.creditplatform.model.dto.OllamaRequest;
+import com.talan.creditplatform.service.OllamaOptions;
+import com.talan.creditplatform.service.OllamaRequest;
 import com.talan.creditplatform.service.OllamaClient;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;

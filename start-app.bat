@@ -23,7 +23,7 @@ if %ERRORLEVEL% neq 0 (
 )
 
 echo Starting Spring Boot backend on port 8081...
-start "Credit Platform - BACKEND" cmd /k "cd /d %~dp0 && mvn spring-boot:run"
+start "Credit Platform - BACKEND" cmd /k "cd /d %~dp0 && set DB_USERNAME=postgre&& set DB_PASSWORD=53649713&& mvn spring-boot:run"
 
 echo.
 echo Backend URL: http://localhost:8081
