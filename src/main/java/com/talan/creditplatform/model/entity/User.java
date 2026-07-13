@@ -1,10 +1,12 @@
 package com.talan.creditplatform.model.entity;
 
 import jakarta.persistence.*;
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.Objects;
 
 @Entity
-@Table(name = "users")
+@Table(name = "employee")
 public class User {
 
     @Id
@@ -12,20 +14,69 @@ public class User {
     private Long id;
 
     @Column(unique = true, nullable = false)
+    private String email;
+
+    @Column(unique = true, nullable = false)
     private String username;
 
     @Column(nullable = false)
     private String password;
 
+    @Column(name = "last_name", nullable = false)
+    private String lastName;
+
+    @Column(name = "first_name", nullable = false)
+    private String firstName;
+
+    @Column(name = "national_id", unique = true, nullable = false)
+    private String nationalId;
+
+    private String gender;
+
+    @Column(name = "phone_number")
+    private String phoneNumber;
+
+    @Column(name = "hire_date", nullable = false)
+    private LocalDate hireDate;
+
     @Column(nullable = false)
-    private String role; // e.g. "ROLE_BANQUIER", "ROLE_ADMIN"
+    private BigDecimal salary;
+
+    private String role;
 
     public User() {}
 
     public User(String username, String password, String role) {
         this.username = username;
         this.password = password;
-        this.role = role;
+        setRole(role);
+        applyDefaults();
+    }
+
+    @PrePersist
+    @PreUpdate
+    protected void applyDefaults() {
+        if (email == null || email.isBlank()) {
+            email = username + "@talan.com";
+        }
+        if (lastName == null || lastName.isBlank()) {
+            lastName = username;
+        }
+        if (firstName == null || firstName.isBlank()) {
+            firstName = username;
+        }
+        if (nationalId == null || nationalId.isBlank()) {
+            nationalId = "NID-" + username;
+        }
+        if (hireDate == null) {
+            hireDate = LocalDate.now();
+        }
+        if (salary == null) {
+            salary = BigDecimal.ZERO;
+        }
+        if (role == null || role.isBlank()) {
+            role = "manager";
+        }
     }
 
     public Long getId() {
@@ -34,6 +85,14 @@ public class User {
 
     public void setId(Long id) {
         this.id = id;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
     }
 
     public String getUsername() {
@@ -57,7 +116,78 @@ public class User {
     }
 
     public void setRole(String role) {
-        this.role = role;
+        if ("ROLE_ADMIN".equals(role)) {
+            this.role = "admin";
+        } else if ("ROLE_ANALYST".equals(role)) {
+            this.role = "analyst";
+        } else if ("ROLE_BANQUIER".equals(role) || "ROLE_MANAGER".equals(role)) {
+            this.role = "manager";
+        } else {
+            this.role = role;
+        }
+    }
+
+    public String getAuthority() {
+        if ("admin".equalsIgnoreCase(role)) {
+            return "ROLE_ADMIN";
+        }
+        return "ROLE_BANQUIER";
+    }
+
+    public String getLastName() {
+        return lastName;
+    }
+
+    public void setLastName(String lastName) {
+        this.lastName = lastName;
+    }
+
+    public String getFirstName() {
+        return firstName;
+    }
+
+    public void setFirstName(String firstName) {
+        this.firstName = firstName;
+    }
+
+    public String getNationalId() {
+        return nationalId;
+    }
+
+    public void setNationalId(String nationalId) {
+        this.nationalId = nationalId;
+    }
+
+    public String getGender() {
+        return gender;
+    }
+
+    public void setGender(String gender) {
+        this.gender = gender;
+    }
+
+    public String getPhoneNumber() {
+        return phoneNumber;
+    }
+
+    public void setPhoneNumber(String phoneNumber) {
+        this.phoneNumber = phoneNumber;
+    }
+
+    public LocalDate getHireDate() {
+        return hireDate;
+    }
+
+    public void setHireDate(LocalDate hireDate) {
+        this.hireDate = hireDate;
+    }
+
+    public BigDecimal getSalary() {
+        return salary;
+    }
+
+    public void setSalary(BigDecimal salary) {
+        this.salary = salary;
     }
 
     @Override

@@ -3,6 +3,7 @@ package com.talan.creditplatform;
 import com.talan.creditplatform.model.entity.Dossier;
 import com.talan.creditplatform.model.entity.Evaluation;
 import com.talan.creditplatform.repository.DossierRepository;
+import com.talan.creditplatform.repository.UserRepository;
 import com.talan.creditplatform.service.PipelineOrchestrator;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -26,6 +27,9 @@ public class EndToEndEvaluationScript {
     @Autowired
     private DossierRepository dossierRepository;
 
+    @Autowired
+    private UserRepository userRepository;
+
     @Test
     public void runFullPipeline() {
         System.out.println("Starting End-to-End Evaluation Script...");
@@ -37,6 +41,7 @@ public class EndToEndEvaluationScript {
         dossier.setTypeClient("Personne Morale");
         dossier.setMontantDemande("500000.0");
         dossier.setRawData("{\"revenue\": 1000000, \"debt\": 200000, \"collateral\": \"Building\"}");
+        userRepository.findByUsername("analyst").ifPresent(dossier::setAssignedAnalyst);
         
         dossier = dossierRepository.save(dossier);
         System.out.println("Saved dummy dossier with SIREN: " + dossier.getSiren());

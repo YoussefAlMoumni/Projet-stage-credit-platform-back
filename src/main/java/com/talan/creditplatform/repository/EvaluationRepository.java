@@ -9,4 +9,5 @@ import java.util.List;
 @Repository
 public interface EvaluationRepository extends JpaRepository<Evaluation, Long> {
     List<Evaluation> findByDossierSirenOrderByCreatedAtDesc(String siren);
+    List<Evaluation> findByDossierIdOrderByCreatedAtDesc(Long dossierId);
 }

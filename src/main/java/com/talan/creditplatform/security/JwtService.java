@@ -1,56 +1,35 @@
 package com.talan.creditplatform.security;
 
-import com.talan.creditplatform.model.entity.AppConfiguration;
-import com.talan.creditplatform.repository.AppConfigurationRepository;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import jakarta.annotation.PostConstruct;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import java.security.Key;
-import java.security.SecureRandom;
-import java.util.Base64;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 import java.util.function.Function;
 
 @Service
 public class JwtService {
 
-    private static final String JWT_SECRET_KEY = "JWT_SECRET";
-
-    @Autowired
-    private AppConfigurationRepository configRepository;
-
     private String secretKey;
+
+    @Value("${jwt.secret:Y3JlZGl0LXBsYXRmb3JtLWRlZmF1bHQtand0LXNlY3JldC0zMmIh}")
+    private String configuredSecretKey;
 
     @Value("${jwt.expiration:86400000}")
     private long jwtExpiration;
 
     @PostConstruct
     public void init() {
-        Optional<AppConfiguration> configOpt = configRepository.findById(JWT_SECRET_KEY);
-        if (configOpt.isPresent()) {
-            this.secretKey = configOpt.get().getValue();
-        } else {
-            // Generate a secure random 256-bit key
-            SecureRandom random = new SecureRandom();
-            byte[] keyBytes = new byte[32]; // 256 bits
-            random.nextBytes(keyBytes);
-            this.secretKey = Base64.getEncoder().encodeToString(keyBytes);
-            
-            // Save it to the database for future restarts
-            AppConfiguration config = new AppConfiguration(JWT_SECRET_KEY, this.secretKey);
-            configRepository.save(config);
-        }
+        this.secretKey = configuredSecretKey;
     }
 
     public String extractUsername(String token) {

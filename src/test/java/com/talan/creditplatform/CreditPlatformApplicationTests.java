@@ -2,8 +2,9 @@ package com.talan.creditplatform;
 
 import com.talan.creditplatform.model.entity.Dossier;
 import com.talan.creditplatform.model.entity.Evaluation;
+import com.talan.creditplatform.model.entity.AiModel;
+import com.talan.creditplatform.repository.AiModelRepository;
 import com.talan.creditplatform.repository.EvaluationRepository;
-import com.talan.creditplatform.repository.StageResultRepository;
 import com.talan.creditplatform.service.SolvabiliteAgent;
 import com.talan.creditplatform.service.HistoriqueAgent;
 import com.talan.creditplatform.service.GarantiesAgent;
@@ -18,7 +19,10 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.Optional;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.*;
@@ -33,7 +37,7 @@ class CreditPlatformApplicationTests {
     private EvaluationRepository evaluationRepository;
 
     @Mock
-    private StageResultRepository stageResultRepository;
+    private AiModelRepository aiModelRepository;
 
     private SolvabiliteAgent solvabiliteAgent;
     private HistoriqueAgent historiqueAgent;
@@ -52,7 +56,7 @@ class CreditPlatformApplicationTests {
         
         pipelineOrchestrator = new PipelineOrchestrator(
             solvabiliteAgent, historiqueAgent, garantiesAgent, conformiteAgent, 
-            supervisorAgent, evaluationRepository, stageResultRepository
+            supervisorAgent, evaluationRepository, aiModelRepository
         );
     }
 
@@ -78,6 +82,8 @@ class CreditPlatformApplicationTests {
         dossier.setSiren("12345");
 
         when(ollamaClient.generate(any())).thenReturn("MOCK_OUT");
+        when(aiModelRepository.findFirstByStageNameAndActiveTrue("supervisor"))
+                .thenReturn(Optional.of(new AiModel("supervisor", "deepseek-r1:14b", 4096, 0.4, "0s", true)));
         when(evaluationRepository.save(any(Evaluation.class))).thenAnswer(i -> {
             Evaluation e = i.getArgument(0);
             e.setId(1L);
@@ -89,7 +95,10 @@ class CreditPlatformApplicationTests {
         assertEquals("MOCK_OUT", result.getFinalReport());
         // Verify 4 analyst calls + 1 supervisor call = 5 total calls
         verify(ollamaClient, times(5)).generate(any());
-        // Verify stage results were saved 4 times
-        verify(stageResultRepository, times(4)).save(any());
+        assertNotNull(result.getSolvencyStageOutput());
+        assertNotNull(result.getHistoryStageOutput());
+        assertNotNull(result.getGuaranteesStageOutput());
+        assertNotNull(result.getComplianceStageOutput());
+        assertNotNull(result.getSupervisorStageOutput());
     }
 }

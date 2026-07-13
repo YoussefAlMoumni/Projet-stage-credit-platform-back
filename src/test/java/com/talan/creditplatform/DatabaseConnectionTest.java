@@ -2,6 +2,7 @@ package com.talan.creditplatform;
 
 import com.talan.creditplatform.model.entity.Dossier;
 import com.talan.creditplatform.repository.DossierRepository;
+import com.talan.creditplatform.repository.UserRepository;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,6 +24,9 @@ public class DatabaseConnectionTest {
     @Autowired
     private DossierRepository dossierRepository;
 
+    @Autowired
+    private UserRepository userRepository;
+
     @Test
     public void testJpaRoundTrip() {
         System.out.println("Starting JPA Entity Round-Trip Test...");
@@ -34,6 +38,7 @@ public class DatabaseConnectionTest {
         dossier.setTypeClient("Personne Physique");
         dossier.setMontantDemande("10000.0");
         dossier.setRawData("{}");
+        userRepository.findByUsername("analyst").ifPresent(dossier::setAssignedAnalyst);
 
         // Save
         Dossier savedDossier = dossierRepository.save(dossier);
@@ -41,7 +46,7 @@ public class DatabaseConnectionTest {
         System.out.println("Saved dossier successfully: " + savedDossier.getSiren());
 
         // Retrieve
-        Dossier retrievedDossier = dossierRepository.findById(savedDossier.getSiren()).orElse(null);
+        Dossier retrievedDossier = dossierRepository.findBySiren(savedDossier.getSiren()).orElse(null);
         assertNotNull(retrievedDossier);
         assertEquals("Test Entity", retrievedDossier.getName());
         System.out.println("Retrieved dossier successfully: " + retrievedDossier.getName());

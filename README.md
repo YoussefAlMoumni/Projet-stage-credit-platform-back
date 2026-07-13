@@ -23,10 +23,16 @@ ollama pull deepseek-r1:14b
    ```sql
    CREATE DATABASE credit_platform;
    ```
-   The backend relies on `spring.jpa.hibernate.ddl-auto=update` to automatically create tables.
+   The backend relies on `spring.jpa.hibernate.ddl-auto=update` to automatically create the normalized schema:
+   `employee`, role subtype tables, `dossier`, individual/corporate dossier detail tables, credit history, loan,
+   collateral, AI model/prompt, and evaluation tables.
+
+   Optional seed data is available in `src/main/resources/sample_data.sql`.
+
    Default credentials will be populated automatically:
    - Admin: `admin` / `adminpass`
    - Banker: `banker` / `bankerpass`
+   - Analyst: `analyst` / `analystpass`
 
 2. **Backend Execution**
    ```bash

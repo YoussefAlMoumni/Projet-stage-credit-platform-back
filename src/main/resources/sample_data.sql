@@ -1,157 +1,83 @@
--- ============================================================
--- Credit Platform - Sample Data
--- ============================================================
--- Run this AFTER starting CreditPlatformApplication once
--- so that Hibernate has already created the table schema.
--- ============================================================
+BEGIN;
 
--- Clear existing data (order matters due to FK constraints)
-DELETE FROM stage_results;
-DELETE FROM evaluations;
-DELETE FROM dossiers;
--- NOTE: Do NOT delete users here. User seeding (admin/banker/analyst)
--- is handled automatically by DatabaseInitializer.java on every startup
--- with correct BCrypt-encoded passwords.
+INSERT INTO employee (id, email, username, password, last_name, first_name, national_id, gender, phone_number, hire_date, salary, role) VALUES
+(1, 'admin@talan.com', 'admin', '$2a$10$vK3M25Ld99W08wB0B1mGpeVpI0L/ZofWjTq4gTid06Q47H10U3ia.', 'System', 'Administrator', 'NID-0001', 'M', '+21671000001', '2024-01-15', 5500.00, 'admin'),
+(2, 'banker@talan.com', 'banker', '$2a$10$9X2DbeGZf537.oVpP19MueNfA88P9z8Cgq5U2G.SBeR/7A1YvA02G', 'Dupont', 'Jean', 'NID-0002', 'M', '+21671000002', '2025-03-01', 3800.00, 'manager'),
+(3, 'analyst@talan.com', 'analyst', '$2a$10$rDpGshq65XfA752A1w0KLeUvB0A7BkWzYIcl09XlGvC5hV9wS8Biu', 'Martin', 'Claire', 'NID-0003', 'F', '+21671000003', '2025-06-01', 3200.00, 'analyst')
+ON CONFLICT (id) DO NOTHING;
 
--- ============================================================
--- DOSSIERS (Credit Application Files)
--- ============================================================
-INSERT INTO dossiers (siren, name, type_client, montant_demande, raw_data) VALUES
-(
-    '123456789',
-    'Dupont Industries',
-    'Personne Morale',
-    '250000',
-    '{"chiffre_affaires": "1200000", "resultat_net": "85000", "effectif": 42, "secteur": "Industrie Manufacturière", "anciennete": 12}'
-),
-(
-    '987654321',
-    'Marie Lefebvre',
-    'Personne Physique',
-    '75000',
-    '{"revenus_mensuels": "4500", "charges_mensuelles": "1200", "apport_personnel": "15000", "type_projet": "Achat Immobilier", "situation_professionnelle": "CDI"}'
-),
-(
-    '456789123',
-    'Tech Solutions SARL',
-    'Personne Morale',
-    '500000',
-    '{"chiffre_affaires": "3500000", "resultat_net": "210000", "effectif": 78, "secteur": "Technologies de l Information", "anciennete": 7}'
-),
-(
-    '321654987',
-    'Jean-Pierre Martin',
-    'Personne Physique',
-    '30000',
-    '{"revenus_mensuels": "2800", "charges_mensuelles": "950", "apport_personnel": "5000", "type_projet": "Travaux Renovation", "situation_professionnelle": "CDI"}'
-),
-(
-    '654321789',
-    'Boulangerie Artisanale Morin',
-    'Personne Morale',
-    '120000',
-    '{"chiffre_affaires": "480000", "resultat_net": "32000", "effectif": 8, "secteur": "Agroalimentaire", "anciennete": 25}'
-);
+ALTER TABLE employee ALTER COLUMN id RESTART WITH 4;
 
--- ============================================================
--- EVALUATIONS (Sample completed evaluations)
--- ============================================================
-INSERT INTO evaluations (dossier_siren, mode, final_report, created_at) VALUES
-(
-    '123456789',
-    'FAST',
-    '# Rapport de Décision - Dupont Industries
+INSERT INTO employee_admin (employee_id) VALUES (1) ON CONFLICT DO NOTHING;
+INSERT INTO employee_manager (employee_id) VALUES (2) ON CONFLICT DO NOTHING;
+INSERT INTO employee_analyst (employee_id) VALUES (3) ON CONFLICT DO NOTHING;
 
-## Décision : APPROUVÉ
+INSERT INTO ai_model (id, stage_name, model_name, context_window_size, temperature, keep_alive_setting, is_active) VALUES
+(1, 'solvency', 'deepseek-r1:8b', 8192, 0.2, '5m', true),
+(2, 'history', 'deepseek-r1:8b', 8192, 0.1, '5m', true),
+(3, 'guarantees', 'deepseek-r1:8b', 8192, 0.3, '5m', true),
+(4, 'compliance', 'deepseek-r1:8b', 4096, 0.0, '5m', true),
+(5, 'supervisor', 'deepseek-r1:14b', 16384, 0.4, '15m', true)
+ON CONFLICT (id) DO NOTHING;
 
-Après consolidation des analyses des quatre spécialistes, le dossier Dupont Industries (SIREN: 123456789) présente un profil de risque acceptable.
+ALTER TABLE ai_model ALTER COLUMN id RESTART WITH 6;
 
-### Points Positifs
-- Ratio d''endettement maîtrisé (< 35%)
-- Historique bancaire sans incident sur 5 ans
-- Garanties réelles couvrant 120% du montant demandé
-- Conformité KYC/AML validée
+INSERT INTO ai_prompt (id, ai_model_id, prompt_text, version_tag, updated_at) VALUES
+(1, 1, 'Analyze client solvency, monthly revenue ratios, and balance parameters.', 'v1.0.0', '2026-07-12 10:00:00'),
+(2, 2, 'Examine credit records historical entries for late settlements or active defaults.', 'v1.0.0', '2026-07-12 10:00:00'),
+(3, 3, 'Evaluate provided assets value against total liability exposure margins.', 'v1.0.0', '2026-07-12 10:00:00'),
+(4, 4, 'Verify client entity legal structure parameters against risk guidelines.', 'v1.0.0', '2026-07-12 10:00:00'),
+(5, 5, 'Consolidate individual analytical tracks into a final markdown scoring verdict.', 'v1.0.0', '2026-07-12 10:00:00')
+ON CONFLICT (id) DO NOTHING;
 
-### Conditions d''Octroi
-- Montant accordé : 250 000 €
-- Durée : 84 mois
-- Taux : 3.75% fixe
+ALTER TABLE ai_prompt ALTER COLUMN id RESTART WITH 6;
 
-**Décision finale : ACCORD**',
-    '2026-07-01 10:30:00'
-),
-(
-    '987654321',
-    'FAST',
-    '# Rapport de Décision - Marie Lefebvre
+INSERT INTO dossier (id, siren, client_type, status, creation_date, assigned_analyst_id, approved_by_id) VALUES
+(1, NULL, 'individual', 'approved', '2026-07-01 09:15:00', 3, 2),
+(2, '123456789', 'corporate', 'in_progress', '2026-07-13 11:00:00', 3, NULL)
+ON CONFLICT (id) DO NOTHING;
 
-## Décision : APPROUVÉ
+ALTER TABLE dossier ALTER COLUMN id RESTART WITH 3;
 
-Le dossier de Mme Marie Lefebvre présente des indicateurs financiers solides pour un financement immobilier.
+INSERT INTO dossier_individual (dossier_id, last_name, first_name, national_id, date_of_birth, profession, monthly_income) VALUES
+(1, 'Ben Ali', 'Sami', 'CIN-09912345', '1992-05-14', 'Senior Software Engineer', 4200.00)
+ON CONFLICT (dossier_id) DO NOTHING;
 
-### Points Positifs
-- Revenus stables en CDI depuis 8 ans
-- Taux d''endettement post-prêt : 37% (acceptable)
-- Apport personnel de 20%
-- Aucun incident de paiement
+INSERT INTO dossier_corporate (dossier_id, company_name, tax_registration_number, legal_form, registered_office_address, fiscal_year, turnover, net_income, total_debt, equity, liquidity_ratio) VALUES
+(2, 'Talan Tunisie SARL', '1234567MAM000', 'SARL', 'Rue des Entrepreneurs, Charguia II, Tunis', 2025, 1250000.00, 180000.00, 300000.00, 450000.00, 1.65)
+ON CONFLICT (dossier_id) DO NOTHING;
 
-### Conditions d''Octroi
-- Montant accordé : 75 000 €
-- Durée : 180 mois
-- Taux : 3.20% fixe
+INSERT INTO credit_history (id, dossier_id, institution_name, incident_type, amount_in_delinquency, resolution_status, reported_date) VALUES
+(1, 1, 'Banque Centrale', 'none', 0.00, true, '2026-01-10'),
+(2, 2, 'BIAT', 'late_payment', 12000.00, true, '2025-11-04')
+ON CONFLICT (id) DO NOTHING;
 
-**Décision finale : ACCORD**',
-    '2026-07-02 14:15:00'
-),
-(
-    '321654987',
-    'FAST',
-    '# Rapport de Décision - Jean-Pierre Martin
+ALTER TABLE credit_history ALTER COLUMN id RESTART WITH 3;
 
-## Décision : REFUSÉ
+INSERT INTO loan (id, dossier_id, amount, interest_rate, term_months, payment_frequency, start_date, status) VALUES
+(1, 1, 85000.00, 4.25, 60, 'monthly', '2026-07-05', 'active'),
+(2, 2, 250000.00, 6.50, 36, 'quarterly', NULL, 'active')
+ON CONFLICT (id) DO NOTHING;
 
-Le dossier présente un niveau de risque trop élevé au regard des critères d''octroi actuels.
+ALTER TABLE loan ALTER COLUMN id RESTART WITH 3;
 
-### Points Négatifs
-- Taux d''endettement post-prêt : 67% (trop élevé)
-- Un incident de paiement enregistré en 2024
-- Apport personnel insuffisant (< 10%)
+INSERT INTO collateral (id, loan_id, type, description, estimated_value, valuation_date, status) VALUES
+(1, 1, 'real_estate', 'Appartement Residence El Ons, Tunis', 110000.00, '2026-06-20', 'held'),
+(2, 2, 'personal_guarantee', 'Corporate Partner Fondateur Caution Solidaire', 200000.00, '2026-07-10', 'held')
+ON CONFLICT (id) DO NOTHING;
 
-**Décision finale : REFUS**',
-    '2026-07-03 09:45:00'
-);
+ALTER TABLE collateral ALTER COLUMN id RESTART WITH 3;
 
--- ============================================================
--- STAGE RESULTS (AI pipeline outputs for evaluation 1)
--- ============================================================
-INSERT INTO stage_results (evaluation_id, stage_name, output, duration_ms)
-SELECT id, 'solvabilite',
-'Analyse Solvabilité - Dupont Industries:
-Ratio d''endettement calculé : 28.5%. La capacité de remboursement mensuelle est estimée à 4 200€ pour une échéance prévisionnelle de 3 500€.
-RECOMMANDATION : Solvabilité satisfaisante, financement envisageable.',
-3240
-FROM evaluations WHERE dossier_siren = '123456789' LIMIT 1;
+INSERT INTO evaluation (id, dossier_id, ai_model_id, execution_mode, solvency_stage_output, solvency_duration_ms, history_stage_output, history_duration_ms, guarantees_stage_output, guarantees_duration_ms, compliance_stage_output, compliance_duration_ms, supervisor_stage_output, supervisor_duration_ms, created_at) VALUES
+(1, 1, 5, 'FAST',
+ 'Solvency verified. DTI ratio is at 24%, safely below maximum thresholds.', 1240,
+ 'No baseline active default anomalies encountered in local banking historical registries.', 980,
+ 'Collateral value covers loan principal amount at 129% scaling efficiency ratio.', 1150,
+ 'All mandatory regulatory documentation targets completed, checked, and validated.', 620,
+ '# Final Evaluation Report Summary\n\n**Verdict**: APPROVED\n\nClient displays robust indicators with optimal liability metrics.', 3450,
+ '2026-07-01 10:30:00')
+ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO stage_results (evaluation_id, stage_name, output, duration_ms)
-SELECT id, 'historique',
-'Analyse Historique - Dupont Industries:
-Aucun incident de paiement enregistré sur les 5 dernières années. Encours actuels : 2 crédits en cours, tous à jour.
-Score de risque historique : FAIBLE.',
-2890
-FROM evaluations WHERE dossier_siren = '123456789' LIMIT 1;
+ALTER TABLE evaluation ALTER COLUMN id RESTART WITH 2;
 
-INSERT INTO stage_results (evaluation_id, stage_name, output, duration_ms)
-SELECT id, 'garanties',
-'Évaluation des Garanties - Dupont Industries:
-Collatéral proposé : Hypothèque sur entrepôt industriel estimé à 300 000€. Ratio de couverture : 120%.
-AVIS : Couverture du risque SATISFAISANTE.',
-2150
-FROM evaluations WHERE dossier_siren = '123456789' LIMIT 1;
-
-INSERT INTO stage_results (evaluation_id, stage_name, output, duration_ms)
-SELECT id, 'conformite',
-'Contrôle Conformité - Dupont Industries:
-Vérifications KYC/AML effectuées. Aucune alerte détectée. Bénéficiaires effectifs identifiés et vérifiés.
-STATUT: APPROUVE - Conformité réglementaire validée.',
-1980
-FROM evaluations WHERE dossier_siren = '123456789' LIMIT 1;
+COMMIT;

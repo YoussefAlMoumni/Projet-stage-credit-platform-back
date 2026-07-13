@@ -32,14 +32,14 @@ public class CreditRequestController {
 
     @PostMapping("/{siren}/evaluate")
     public ResponseEntity<?> evaluate(@PathVariable String siren, @RequestParam(defaultValue = "FAST") String mode) {
-        Optional<Dossier> dossierOpt = dossierRepository.findById(siren);
+        Optional<Dossier> dossierOpt = findBySirenOrId(siren);
         if (dossierOpt.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
         
         try {
             Evaluation evaluation = pipelineOrchestrator.evaluate(dossierOpt.get(), mode);
-            var stageResults = stageResultRepository.findByEvaluationId(evaluation.getId());
+            var stageResults = stageResultRepository.fromEvaluation(evaluation);
             return ResponseEntity.ok(new EvaluationResultDto(evaluation, stageResults));
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body(e.getMessage());
@@ -48,7 +48,21 @@ public class CreditRequestController {
 
     @GetMapping("/{siren}/history")
     public ResponseEntity<List<Evaluation>> getHistory(@PathVariable String siren) {
-        List<Evaluation> history = evaluationRepository.findByDossierSirenOrderByCreatedAtDesc(siren);
+        List<Evaluation> history = findBySirenOrId(siren)
+                .map(dossier -> evaluationRepository.findByDossierIdOrderByCreatedAtDesc(dossier.getId()))
+                .orElseGet(() -> evaluationRepository.findByDossierSirenOrderByCreatedAtDesc(siren));
         return ResponseEntity.ok(history);
+    }
+
+    private Optional<Dossier> findBySirenOrId(String value) {
+        Optional<Dossier> bySiren = dossierRepository.findBySiren(value);
+        if (bySiren.isPresent()) {
+            return bySiren;
+        }
+        try {
+            return dossierRepository.findById(Long.valueOf(value));
+        } catch (NumberFormatException e) {
+            return Optional.empty();
+        }
     }
 }
