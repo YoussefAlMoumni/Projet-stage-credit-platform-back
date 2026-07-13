@@ -16,7 +16,8 @@ public class DatabaseInitializer {
             // Upsert each default user so they always exist with the correct password,
             // even if the sample_data.sql was run and wiped the users table.
             upsertUser(userRepository, passwordEncoder, "admin",   "adminpass",  "admin");
-            upsertUser(userRepository, passwordEncoder, "banker",  "bankerpass", "ROLE_BANQUIER");
+            upsertUser(userRepository, passwordEncoder, "manager", "managerpass", "manager");
+            upsertUser(userRepository, passwordEncoder, "banker",  "bankerpass", "manager");
             upsertUser(userRepository, passwordEncoder, "analyst", "analystpass","analyst");
         };
     }

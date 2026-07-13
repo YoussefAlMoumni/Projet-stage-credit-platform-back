@@ -77,14 +77,21 @@ public class AuthController {
         );
         UserDetails userDetails = (UserDetails) auth.getPrincipal();
         String token = jwtService.generateToken(userDetails);
+        String authority = userDetails.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .findFirst()
+                .orElse("ROLE_MANAGER");
 
-        return ResponseEntity.ok(new LoginResponse(token, role));
+        return ResponseEntity.ok(new LoginResponse(token, authority));
     }
 
     private String normalizeRole(String requestedRole) {
         if ("ROLE_ADMIN".equals(requestedRole)) {
-            return "ROLE_ADMIN";
+            return "admin";
         }
-        return "ROLE_BANQUIER";
+        if ("ROLE_ANALYST".equals(requestedRole)) {
+            return "analyst";
+        }
+        return "manager";
     }
 }

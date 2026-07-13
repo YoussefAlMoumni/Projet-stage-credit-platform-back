@@ -1,5 +1,6 @@
 package com.talan.creditplatform.model.entity;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -20,6 +21,7 @@ public class User {
     private String username;
 
     @Column(nullable = false)
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
     private String password;
 
     @Column(name = "last_name", nullable = false)
@@ -131,7 +133,10 @@ public class User {
         if ("admin".equalsIgnoreCase(role)) {
             return "ROLE_ADMIN";
         }
-        return "ROLE_BANQUIER";
+        if ("analyst".equalsIgnoreCase(role)) {
+            return "ROLE_ANALYST";
+        }
+        return "ROLE_MANAGER";
     }
 
     public String getLastName() {
