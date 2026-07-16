@@ -2,6 +2,7 @@ package com.talan.creditplatform.controller.rest;
 
 import com.talan.creditplatform.model.entity.User;
 import com.talan.creditplatform.repository.UserRepository;
+import com.talan.creditplatform.service.UserService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
@@ -15,10 +16,13 @@ import java.util.Map;
 public class AdminUserController {
 
     private final UserRepository userRepository;
+    private final UserService userService;
     private final PasswordEncoder passwordEncoder;
 
-    public AdminUserController(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+    public AdminUserController(UserRepository userRepository, UserService userService,
+                               PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
+        this.userService = userService;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -46,23 +50,8 @@ public class AdminUserController {
 
     @PutMapping("/{id}")
     public ResponseEntity<User> updateUser(@PathVariable Long id, @RequestBody User update) {
-        return userRepository.findById(id)
-                .map(existing -> {
-                    existing.setUsername(update.getUsername());
-                    existing.setEmail(update.getEmail());
-                    existing.setFirstName(update.getFirstName());
-                    existing.setLastName(update.getLastName());
-                    existing.setNationalId(update.getNationalId());
-                    existing.setGender(update.getGender());
-                    existing.setPhoneNumber(update.getPhoneNumber());
-                    existing.setHireDate(update.getHireDate());
-                    existing.setSalary(update.getSalary());
-                    existing.setRole(update.getRole());
-                    if (update.getPassword() != null && !update.getPassword().isBlank()) {
-                        existing.setPassword(passwordEncoder.encode(update.getPassword()));
-                    }
-                    return ResponseEntity.ok(userRepository.save(existing));
-                })
+        return userService.updateUser(id, update, passwordEncoder)
+                .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
@@ -71,7 +60,7 @@ public class AdminUserController {
         if (!userRepository.existsById(id)) {
             return ResponseEntity.notFound().build();
         }
-        userRepository.deleteById(id);
+        userService.deleteUser(id);
         return ResponseEntity.ok(Map.of("message", "User deleted."));
     }
 }

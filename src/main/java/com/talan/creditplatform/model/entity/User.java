@@ -1,6 +1,7 @@
 package com.talan.creditplatform.model.entity;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.talan.creditplatform.persistence.UserAdminGuardListener;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -8,6 +9,7 @@ import java.util.Objects;
 
 @Entity
 @Table(name = "employee")
+@EntityListeners(UserAdminGuardListener.class)
 public class User {
 
     @Id
