@@ -3,6 +3,7 @@ package com.talan.creditplatform.controller.rest;
 import com.talan.creditplatform.model.entity.User;
 import com.talan.creditplatform.repository.UserRepository;
 import com.talan.creditplatform.service.UserService;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
@@ -32,7 +33,7 @@ public class AdminUserController {
     }
 
     @PostMapping
-    public ResponseEntity<User> createUser(@RequestBody User user) {
+    public ResponseEntity<User> createUser(@Valid @RequestBody User user) {
         if (user.getPassword() == null || user.getPassword().isBlank()) {
             return ResponseEntity.badRequest().build();
         }

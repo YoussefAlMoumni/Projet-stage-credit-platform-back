@@ -1,8 +1,11 @@
 package com.talan.creditplatform.model.entity;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.talan.creditplatform.model.validation.E164Phone;
+import com.talan.creditplatform.model.validation.NationalId;
 import com.talan.creditplatform.persistence.UserAdminGuardListener;
 import jakarta.persistence.*;
+import jakarta.validation.constraints.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Objects;
@@ -17,27 +20,47 @@ public class User {
     private Long id;
 
     @Column(unique = true, nullable = false)
+    @Email(regexp = "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$", 
+            message = "Email must be a valid RFC 5322 email address")
+    @NotBlank(message = "Email is required")
     private String email;
 
     @Column(unique = true, nullable = false)
+    @NotBlank(message = "Username is required")
+    @Size(min = 3, max = 50, message = "Username must be between 3 and 50 characters")
+    @Pattern(regexp = "^[a-zA-Z0-9_]+$", message = "Username must contain only alphanumeric characters and underscores")
     private String username;
 
     @Column(nullable = false)
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    @NotBlank(message = "Password is required")
+    @Size(min = 12, message = "Password must be at least 12 characters")
+    @Pattern(regexp = "^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>/?]).{12,}$", 
+             message = "Password must contain at least one digit, one uppercase letter, one lowercase letter, and one special character")
     private String password;
 
     @Column(name = "last_name", nullable = false)
+    @NotBlank(message = "Last name is required")
+    @Size(min = 2, max = 50, message = "Last name must be between 2 and 50 characters")
+    @Pattern(regexp = "^[a-zA-ZÀ-ÿ\\s-]+$", message = "Last name must contain only letters, spaces, and hyphens")
     private String lastName;
 
     @Column(name = "first_name", nullable = false)
+    @NotBlank(message = "First name is required")
+    @Size(min = 2, max = 50, message = "First name must be between 2 and 50 characters")
+    @Pattern(regexp = "^[a-zA-ZÀ-ÿ\\s-]+$", message = "First name must contain only letters, spaces, and hyphens")
     private String firstName;
 
     @Column(name = "national_id", unique = true, nullable = false)
+    @NationalId(message = "National ID must contain only alphanumeric characters and hyphens, 5-20 characters")
+    @NotBlank(message = "National ID is required")
     private String nationalId;
 
+    @Pattern(regexp = "^(male|female|other)?$", message = "Gender must be male, female, or other")
     private String gender;
 
     @Column(name = "phone_number")
+    @E164Phone(message = "Phone number must be in E.164 format (e.g., +1234567890)")
     private String phoneNumber;
 
     @Column(name = "hire_date", nullable = false)

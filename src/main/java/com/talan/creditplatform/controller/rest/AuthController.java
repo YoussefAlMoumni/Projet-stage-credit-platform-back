@@ -6,6 +6,7 @@ import com.talan.creditplatform.model.dto.RegisterRequest;
 import com.talan.creditplatform.model.entity.User;
 import com.talan.creditplatform.repository.UserRepository;
 import com.talan.creditplatform.security.JwtService;
+import jakarta.validation.Valid;
 import java.util.Map;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -56,21 +57,27 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
-        String username = request.getUsername() == null ? "" : request.getUsername().trim();
-        String password = request.getPassword() == null ? "" : request.getPassword();
+    public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest request) {
+        String username = request.getUsername().trim();
+        String password = request.getPassword();
         String role = normalizeRole(request.getRole());
-
-        if (username.length() < 3 || password.length() < 4) {
-            return ResponseEntity.badRequest()
-                    .body(Map.of("message", "Username must be at least 3 characters and password at least 4 characters."));
-        }
 
         if (userRepository.findByUsername(username).isPresent()) {
             return ResponseEntity.status(409).body(Map.of("message", "That username is already registered."));
         }
 
-        userRepository.save(new User(username, passwordEncoder.encode(password), role));
+        User user = new User();
+        user.setUsername(username);
+        user.setPassword(passwordEncoder.encode(password));
+        user.setEmail(request.getEmail());
+        user.setPhoneNumber(request.getPhoneNumber());
+        user.setNationalId(request.getNationalId());
+        user.setFirstName(request.getFirstName());
+        user.setLastName(request.getLastName());
+        user.setGender(request.getGender());
+        user.setRole(role);
+
+        userRepository.save(user);
 
         Authentication auth = authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(username, password)
