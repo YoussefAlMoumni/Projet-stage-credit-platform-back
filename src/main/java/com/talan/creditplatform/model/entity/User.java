@@ -56,7 +56,6 @@ public class User {
     @NotBlank(message = "National ID is required")
     private String nationalId;
 
-    @Pattern(regexp = "^(male|female|other)?$", message = "Gender must be male, female, or other")
     private String gender;
 
     @Column(name = "phone_number")
