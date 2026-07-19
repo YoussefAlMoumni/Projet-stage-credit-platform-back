@@ -13,7 +13,7 @@ import java.util.Map;
 
 @RestController
 @CrossOrigin(origins = {"http://localhost:4200", "http://127.0.0.1:4200"})
-@RequestMapping("/api/admin/users")
+@RequestMapping("/api/users")
 public class AdminUserController {
 
     private final UserRepository userRepository;
@@ -50,7 +50,7 @@ public class AdminUserController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<User> updateUser(@PathVariable Long id, @RequestBody User update) {
+    public ResponseEntity<User> updateUser(@PathVariable Long id, @Valid @RequestBody User update) {
         return userService.updateUser(id, update, passwordEncoder)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());

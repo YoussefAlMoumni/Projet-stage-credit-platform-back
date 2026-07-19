@@ -10,11 +10,20 @@ public class OllamaOptions {
     @JsonProperty("num_predict")
     private int numPredict;
 
+    @JsonProperty("temperature")
+    private Double temperature;
+
     public OllamaOptions() {}
 
     public OllamaOptions(int numCtx, int numPredict) {
         this.numCtx = numCtx;
         this.numPredict = numPredict;
+    }
+
+    public OllamaOptions(int numCtx, int numPredict, Double temperature) {
+        this.numCtx = numCtx;
+        this.numPredict = numPredict;
+        this.temperature = temperature;
     }
 
     public int getNumCtx() {
@@ -31,5 +40,13 @@ public class OllamaOptions {
 
     public void setNumPredict(int numPredict) {
         this.numPredict = numPredict;
+    }
+
+    public Double getTemperature() {
+        return temperature;
+    }
+
+    public void setTemperature(Double temperature) {
+        this.temperature = temperature;
     }
 }

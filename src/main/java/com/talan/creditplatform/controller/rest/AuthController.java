@@ -6,8 +6,12 @@ import com.talan.creditplatform.model.dto.RegisterRequest;
 import com.talan.creditplatform.model.entity.User;
 import com.talan.creditplatform.repository.UserRepository;
 import com.talan.creditplatform.security.JwtService;
+import com.talan.creditplatform.service.RateLimiterService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.Map;
+import java.util.Optional;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -26,17 +30,20 @@ public class AuthController {
     private final JwtService jwtService;
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final RateLimiterService rateLimiterService;
 
     public AuthController(
             AuthenticationManager authenticationManager,
             JwtService jwtService,
             UserRepository userRepository,
-            PasswordEncoder passwordEncoder
+            PasswordEncoder passwordEncoder,
+            RateLimiterService rateLimiterService
     ) {
         this.authenticationManager = authenticationManager;
         this.jwtService = jwtService;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.rateLimiterService = rateLimiterService;
     }
 
     @PostMapping("/login")
@@ -100,5 +107,67 @@ public class AuthController {
             return "analyst";
         }
         return "manager";
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<?> forgotPassword(@RequestBody Map<String, String> request, HttpServletRequest httpRequest) {
+        String email = request.get("email");
+        String ip = httpRequest.getRemoteAddr();
+
+        if (email == null || email.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Email is required"));
+        }
+
+        if (rateLimiterService.isBlocked(ip)) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .body(Map.of("message", "Too many attempts from this IP. Please wait 15 minutes."));
+        }
+        if (rateLimiterService.isBlocked(email)) {
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .body(Map.of("message", "Too many attempts for this email. Please wait 15 minutes."));
+        }
+
+        rateLimiterService.recordAttempt(ip);
+        rateLimiterService.recordAttempt(email);
+
+        Optional<User> userOpt = userRepository.findByEmail(email.trim());
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("message", "Email address not found."));
+        }
+
+        User user = userOpt.get();
+        String method = request.get("method");
+
+        if (method == null) {
+            // Step 1: user exists, return options
+            return ResponseEntity.ok(Map.of(
+                    "email", user.getEmail(),
+                    "hasPhone", user.getPhoneNumber() != null && !user.getPhoneNumber().isBlank(),
+                    "phoneNumber", maskPhone(user.getPhoneNumber())
+            ));
+        } else {
+            // Step 2: method selected, trigger simulated OTP delivery
+            return ResponseEntity.ok(Map.of(
+                    "message", "OTP successfully sent via " + method,
+                    "otp", "123456"
+            ));
+        }
+    }
+
+    @PostMapping("/contact-admin")
+    public ResponseEntity<?> contactAdmin(@RequestBody Map<String, String> payload) {
+        System.out.println("IT Department contacted by: " + payload);
+        return ResponseEntity.ok(Map.of(
+                "status", "success",
+                "message", "IT Department contacted successfully."
+        ));
+    }
+
+    private String maskPhone(String phone) {
+        if (phone == null || phone.isBlank()) return "";
+        String p = phone.trim();
+        if (p.length() < 5) return p;
+        return p.substring(0, 3) + "******" + p.substring(p.length() - 2);
     }
 }

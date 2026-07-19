@@ -40,6 +40,9 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable)
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**").permitAll()
+                .requestMatchers("/api/users/**").hasAuthority("ROLE_ADMIN")
+                .requestMatchers("/api/prompts/**").hasAuthority("ROLE_ADMIN")
+                .requestMatchers("/api/dossiers/**").hasAnyAuthority("ROLE_ANALYST", "ROLE_MANAGER", "ROLE_ADMIN")
                 .requestMatchers("/api/admin/**").hasAuthority("ROLE_ADMIN")
                 .requestMatchers("/api/manager/**").hasAuthority("ROLE_MANAGER")
                 .requestMatchers("/api/analyst/**").hasAuthority("ROLE_ANALYST")
