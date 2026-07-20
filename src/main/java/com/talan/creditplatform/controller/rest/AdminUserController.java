@@ -58,10 +58,27 @@ public class AdminUserController {
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Map<String, String>> deleteUser(@PathVariable Long id) {
-        if (!userRepository.existsById(id)) {
+        Optional<User> userOpt = userRepository.findById(id);
+        if (userOpt.isEmpty()) {
             return ResponseEntity.notFound().build();
+        }
+        User user = userOpt.get();
+        if (!user.isFired()) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Cannot delete employee: not marked as fired by manager."));
         }
         userService.deleteUser(id);
         return ResponseEntity.ok(Map.of("message", "User deleted."));
+    }
+
+    @PutMapping("/{id}/fire")
+    public ResponseEntity<Map<String, String>> fireEmployee(@PathVariable Long id) {
+        Optional<User> userOpt = userRepository.findById(id);
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        User user = userOpt.get();
+        user.setFired(true);
+        userRepository.save(user);
+        return ResponseEntity.ok(Map.of("message", "Employee marked as fired."));
     }
 }

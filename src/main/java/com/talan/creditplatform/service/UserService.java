@@ -58,6 +58,7 @@ public class UserService {
                     existing.setHireDate(update.getHireDate());
                     existing.setSalary(update.getSalary());
                     existing.setRole(update.getRole());
+                    existing.setFired(update.isFired());
                     if (update.getPassword() != null && !update.getPassword().isBlank()) {
                         existing.setPassword(passwordEncoder.encode(update.getPassword()));
                     }

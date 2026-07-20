@@ -42,7 +42,7 @@ public class DossierController {
     }
 
     @PostMapping
-    public ResponseEntity<Dossier> createDossier(@RequestBody Dossier dossier) {
+    public ResponseEntity<Dossier> createDossier(@Valid @RequestBody Dossier dossier) {
         assignDefaultAnalystIfMissing(dossier);
         // Ensure bi-directional relationships
         if (dossier.getLoans() != null) {

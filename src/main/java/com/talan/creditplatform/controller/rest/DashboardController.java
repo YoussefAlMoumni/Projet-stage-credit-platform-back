@@ -1,5 +1,6 @@
 package com.talan.creditplatform.controller.rest;
 
+import com.talan.creditplatform.model.dto.AnalystPerformanceDto;
 import com.talan.creditplatform.model.entity.Dossier;
 import com.talan.creditplatform.model.entity.User;
 import com.talan.creditplatform.repository.DossierRepository;
@@ -10,6 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @CrossOrigin(origins = {"http://localhost:4200", "http://127.0.0.1:4200"})
@@ -30,8 +32,16 @@ public class DashboardController {
     }
 
     @GetMapping("/manager/analysts")
-    public List<User> getAnalystsForManager() {
-        return userRepository.findByRoleOrderByLastNameAscFirstNameAsc("analyst");
+    public List<AnalystPerformanceDto> getAnalystsForManager() {
+        List<User> analysts = userRepository.findByRoleOrderByLastNameAscFirstNameAsc("analyst");
+        return analysts.stream()
+                .filter(analyst -> !analyst.isFired())
+                .map(analyst -> {
+                    long total = dossierRepository.countByAssignedAnalyst(analyst);
+                    long completed = dossierRepository.countByAssignedAnalystAndStatus(analyst, "approved");
+                    return new AnalystPerformanceDto(analyst, total, completed);
+                })
+                .collect(Collectors.toList());
     }
 
     @GetMapping("/analyst/dossiers/pending")

@@ -70,6 +70,9 @@ public class User {
 
     private String role;
 
+    @Column(nullable = false)
+    private boolean fired = false;
+
     public User() {}
 
     public User(String username, String password, String role) {
@@ -217,6 +220,14 @@ public class User {
 
     public void setSalary(BigDecimal salary) {
         this.salary = salary;
+    }
+
+    public boolean isFired() {
+        return fired;
+    }
+
+    public void setFired(boolean fired) {
+        this.fired = fired;
     }
 
     @Override
