@@ -39,6 +39,9 @@ class CreditPlatformApplicationTests {
     @Mock
     private AiModelRepository aiModelRepository;
 
+    @Mock
+    private com.talan.creditplatform.repository.AiPromptRepository aiPromptRepository;
+
     private SolvabiliteAgent solvabiliteAgent;
     private HistoriqueAgent historiqueAgent;
     private GarantiesAgent garantiesAgent;
@@ -48,11 +51,11 @@ class CreditPlatformApplicationTests {
 
     @BeforeEach
     void setUp() {
-        solvabiliteAgent = new SolvabiliteAgent(ollamaClient);
-        historiqueAgent = new HistoriqueAgent(ollamaClient);
-        garantiesAgent = new GarantiesAgent(ollamaClient);
-        conformiteAgent = new ConformiteAgent(ollamaClient);
-        supervisorAgent = new SupervisorAgent(ollamaClient);
+        solvabiliteAgent = new SolvabiliteAgent(ollamaClient, aiModelRepository, aiPromptRepository);
+        historiqueAgent = new HistoriqueAgent(ollamaClient, aiModelRepository, aiPromptRepository);
+        garantiesAgent = new GarantiesAgent(ollamaClient, aiModelRepository, aiPromptRepository);
+        conformiteAgent = new ConformiteAgent(ollamaClient, aiModelRepository, aiPromptRepository);
+        supervisorAgent = new SupervisorAgent(ollamaClient, aiModelRepository, aiPromptRepository);
         
         pipelineOrchestrator = new PipelineOrchestrator(
             solvabiliteAgent, historiqueAgent, garantiesAgent, conformiteAgent, 
@@ -72,7 +75,7 @@ class CreditPlatformApplicationTests {
         
         assertEquals("MOCK_RESPONSE", response);
         verify(ollamaClient).generate(argThat(req -> 
-            req.getPrompt().contains("12345") && req.getPrompt().contains("Personne Physique")
+            req.getPrompt().contains("12345") && req.getPrompt().contains("individual")
         ));
     }
 

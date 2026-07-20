@@ -5,6 +5,7 @@ import com.talan.creditplatform.model.dto.LoginResponse;
 import com.talan.creditplatform.model.dto.RegisterRequest;
 import com.talan.creditplatform.model.entity.User;
 import com.talan.creditplatform.repository.UserRepository;
+import com.talan.creditplatform.security.CustomUserDetails;
 import com.talan.creditplatform.security.JwtService;
 import com.talan.creditplatform.service.RateLimiterService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -47,20 +48,28 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest request) {
-        Authentication auth = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
-        );
+    public ResponseEntity<?> login(@RequestBody LoginRequest request) {
+        try {
+            Authentication auth = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
+            );
 
-        UserDetails userDetails = (UserDetails) auth.getPrincipal();
-        String token = jwtService.generateToken(userDetails);
-        
-        String role = userDetails.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority)
-                .findFirst()
-                .orElse("ROLE_USER");
+            UserDetails userDetails = (UserDetails) auth.getPrincipal();
+            String token = jwtService.generateToken(userDetails);
 
-        return ResponseEntity.ok(new LoginResponse(token, role));
+            String role = "manager";
+            if (userDetails instanceof CustomUserDetails) {
+                role = ((CustomUserDetails) userDetails).getUser().getRole();
+            }
+
+            return ResponseEntity.ok(new LoginResponse(token, role));
+        } catch (org.springframework.security.authentication.BadCredentialsException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("message", "Incorrect username or password"));
+        } catch (org.springframework.security.core.userdetails.UsernameNotFoundException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("message", "User not found"));
+        }
     }
 
     @PostMapping("/register")
@@ -91,12 +100,8 @@ public class AuthController {
         );
         UserDetails userDetails = (UserDetails) auth.getPrincipal();
         String token = jwtService.generateToken(userDetails);
-        String authority = userDetails.getAuthorities().stream()
-                .map(GrantedAuthority::getAuthority)
-                .findFirst()
-                .orElse("ROLE_MANAGER");
 
-        return ResponseEntity.ok(new LoginResponse(token, authority));
+        return ResponseEntity.ok(new LoginResponse(token, role));
     }
 
     private String normalizeRole(String requestedRole) {

@@ -1,16 +1,12 @@
 BEGIN;
 
 INSERT INTO employee (id, email, username, password, last_name, first_name, national_id, gender, phone_number, hire_date, salary, role) VALUES
-(1, 'admin@talan.com', 'admin', '$2a$10$vK3M25Ld99W08wB0B1mGpeVpI0L/ZofWjTq4gTid06Q47H10U3ia.', 'System', 'Administrator', 'NID-0001', 'M', '+21671000001', '2024-01-15', 5500.00, 'admin'),
-(2, 'banker@talan.com', 'banker', '$2a$10$9X2DbeGZf537.oVpP19MueNfA88P9z8Cgq5U2G.SBeR/7A1YvA02G', 'Dupont', 'Jean', 'NID-0002', 'M', '+21671000002', '2025-03-01', 3800.00, 'manager'),
-(3, 'analyst@talan.com', 'analyst', '$2a$10$rDpGshq65XfA752A1w0KLeUvB0A7BkWzYIcl09XlGvC5hV9wS8Biu', 'Martin', 'Claire', 'NID-0003', 'F', '+21671000003', '2025-06-01', 3200.00, 'analyst')
+(1, 'admin@talan.com', 'admin', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'System', 'Administrator', 'NID-0001', 'M', '+21671000001', '2024-01-15', 5500.00, 'admin'),
+(2, 'banker@talan.com', 'banker', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'Dupont', 'Jean', 'NID-0002', 'M', '+21671000002', '2025-03-01', 3800.00, 'manager'),
+(3, 'analyst@talan.com', 'analyst', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'Martin', 'Claire', 'NID-0003', 'F', '+21671000003', '2025-06-01', 3200.00, 'analyst')
 ON CONFLICT (id) DO NOTHING;
 
 ALTER TABLE employee ALTER COLUMN id RESTART WITH 4;
-
-INSERT INTO employee_admin (employee_id) VALUES (1) ON CONFLICT DO NOTHING;
-INSERT INTO employee_manager (employee_id) VALUES (2) ON CONFLICT DO NOTHING;
-INSERT INTO employee_analyst (employee_id) VALUES (3) ON CONFLICT DO NOTHING;
 
 INSERT INTO ai_model (id, stage_name, model_name, context_window_size, temperature, keep_alive_setting, is_active) VALUES
 (1, 'solvency', 'deepseek-r1:8b', 8192, 0.2, '5m', true),
