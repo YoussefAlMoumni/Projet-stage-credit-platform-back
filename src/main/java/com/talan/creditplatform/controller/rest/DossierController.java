@@ -10,6 +10,7 @@ import com.talan.creditplatform.repository.UserRepository;
 import com.talan.creditplatform.service.PipelineOrchestrator;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
 
 import java.util.List;
 import java.util.Map;

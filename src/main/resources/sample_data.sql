@@ -1,9 +1,9 @@
 BEGIN;
 
-INSERT INTO employee (id, email, username, password, last_name, first_name, national_id, gender, phone_number, hire_date, salary, role) VALUES
-(1, 'admin@talan.com', 'admin', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'System', 'Administrator', 'NID-0001', 'M', '+21671000001', '2024-01-15', 5500.00, 'admin'),
-(2, 'banker@talan.com', 'banker', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'Dupont', 'Jean', 'NID-0002', 'M', '+21671000002', '2025-03-01', 3800.00, 'manager'),
-(3, 'analyst@talan.com', 'analyst', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'Martin', 'Claire', 'NID-0003', 'F', '+21671000003', '2025-06-01', 3200.00, 'analyst')
+INSERT INTO employee (id, email, username, password, last_name, first_name, national_id, gender, phone_number, hire_date, salary, role, fired) VALUES
+(1, 'admin@talan.com', 'admin', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'System', 'Administrator', 'NID-0001', 'M', '+21671000001', '2024-01-15', 5500.00, 'admin', false),
+(2, 'banker@talan.com', 'banker', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'Dupont', 'Jean', 'NID-0002', 'M', '+21671000002', '2025-03-01', 3800.00, 'manager', false),
+(3, 'analyst@talan.com', 'analyst', '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy', 'Martin', 'Claire', 'NID-0003', 'F', '+21671000003', '2025-06-01', 3200.00, 'analyst', false)
 ON CONFLICT (id) DO NOTHING;
 
 ALTER TABLE employee ALTER COLUMN id RESTART WITH 4;
