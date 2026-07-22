@@ -51,29 +51,24 @@ public class PipelineOrchestrator {
                 )));
         eval = evaluationRepository.save(eval);
 
-        try {
-            logger.info("Starting pipeline for dossier {} with mode {}", dossier.getId(), mode);
+        logger.info("Starting pipeline for dossier {} with mode {}", dossier.getId(), mode);
 
-            String solvabiliteOut = runStage("solvency", eval, () -> solvabiliteAgent.run(dossier, workerCtx, workerKeepAlive));
-            String historiqueOut = runStage("history", eval, () -> historiqueAgent.run(dossier, workerCtx, workerKeepAlive));
-            String garantiesOut = runStage("guarantees", eval, () -> garantiesAgent.run(dossier, workerCtx, workerKeepAlive));
-            String conformiteOut = runStage("compliance", eval, () -> conformiteAgent.run(dossier, workerCtx, workerKeepAlive));
+        String solvabiliteOut = runStage("solvency", eval, () -> solvabiliteAgent.run(dossier, workerCtx, workerKeepAlive));
+        String historiqueOut = runStage("history", eval, () -> historiqueAgent.run(dossier, workerCtx, workerKeepAlive));
+        String garantiesOut = runStage("guarantees", eval, () -> garantiesAgent.run(dossier, workerCtx, workerKeepAlive));
+        String conformiteOut = runStage("compliance", eval, () -> conformiteAgent.run(dossier, workerCtx, workerKeepAlive));
 
-            logger.info("Starting supervisor stage for dossier {}", dossier.getId());
-            long start = System.currentTimeMillis();
-            String finalReport = supervisorAgent.runSuperviseur(dossier, solvabiliteOut, historiqueOut, garantiesOut, conformiteOut, supervisorCtx, supervisorKeepAlive);
-            long duration = System.currentTimeMillis() - start;
+        logger.info("Starting supervisor stage for dossier {}", dossier.getId());
+        long start = System.currentTimeMillis();
+        String finalReport = supervisorAgent.runSuperviseur(dossier, solvabiliteOut, historiqueOut, garantiesOut, conformiteOut, supervisorCtx, supervisorKeepAlive);
+        long duration = System.currentTimeMillis() - start;
 
-            eval.setFinalReport(finalReport);
-            eval.setSupervisorDurationMs(toIntDuration(duration));
-            evaluationRepository.save(eval);
-            
-            logger.info("Pipeline completed for dossier {} in {} ms", dossier.getId(), duration);
-            return eval;
-        } catch (Exception e) {
-            logger.error("Pipeline failed for dossier {}: {}", dossier.getId(), e.getMessage());
-            throw new RuntimeException("Pipeline evaluation failed", e);
-        }
+        eval.setFinalReport(finalReport);
+        eval.setSupervisorDurationMs(toIntDuration(duration));
+        evaluationRepository.save(eval);
+        
+        logger.info("Pipeline completed for dossier {} in {} ms", dossier.getId(), duration);
+        return eval;
     }
 
     private String runStage(String stageName, Evaluation eval, StageRunner runner) {

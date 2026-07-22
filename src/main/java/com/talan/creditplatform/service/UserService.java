@@ -1,6 +1,6 @@
 package com.talan.creditplatform.service;
 
-import com.talan.creditplatform.exception.SoleAdminException;
+import com.talan.creditplatform.exception.ConflictException;
 import com.talan.creditplatform.model.entity.User;
 import com.talan.creditplatform.repository.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -27,7 +27,7 @@ public class UserService {
             return;
         }
         if (countActiveAdmins() <= 1) {
-            throw new SoleAdminException(SOLE_ADMIN_MESSAGE);
+            throw new ConflictException(SOLE_ADMIN_MESSAGE);
         }
     }
 
