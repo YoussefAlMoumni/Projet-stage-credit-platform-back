@@ -52,6 +52,8 @@ public class SolvabiliteAgent {
                 .replace("{siren}", dossier.getSiren() != null ? dossier.getSiren() : "N/A")
                 .replace("{clientType}", dossier.getClientType() != null ? dossier.getClientType() : "N/A");
 
+        prompt += "\n\nCONSIGNE STRICTE (Priorité absolue) : Votre réponse DOIT être brève (3 à 4 puces maximum) et inclure '- Décision: [FAVORABLE / DEFAVORABLE]'.";
+
         return execute(prompt, modelName, numCtx, keepAlive, temperature);
     }
 

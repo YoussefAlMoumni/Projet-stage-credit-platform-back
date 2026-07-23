@@ -61,6 +61,9 @@ public class SupervisorAgent {
                 .replace("{garanties}", garantiesOut)
                 .replace("{conformite}", conformiteOut);
 
+        prompt += "\n\nCONSIGNE STRICTE (Priorité absolue) : Votre réponse DOIT être structurée, claire et synthétique en Markdown.\n" +
+                  "Commencez obligatoirement par '### Décision: [FAVORABLE / DEFAVORABLE / AVEC RESERVE]'.";
+
         OllamaOptions options = new OllamaOptions(numCtx, NUM_PREDICT, temperature);
         OllamaRequest request = new OllamaRequest(modelName, prompt, options, keepAlive);
         return ollamaClient.generate(request);

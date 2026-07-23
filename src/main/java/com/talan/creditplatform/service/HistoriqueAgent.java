@@ -49,7 +49,9 @@ public class HistoriqueAgent {
         }
 
         String prompt = promptTemplate
-                .replace("{siren}", dossier.getSiren() != null ? dossier.getSiren() : "N/A");
+                .replace("{incidentCount}", String.valueOf(dossier.getCreditHistories().size()));
+
+        prompt += "\n\nCONSIGNE STRICTE (Priorité absolue) : Votre réponse DOIT être brève (3 à 4 puces maximum) et inclure '- Décision: [FAVORABLE / DEFAVORABLE]'.";
 
         return execute(prompt, modelName, numCtx, keepAlive, temperature);
     }
