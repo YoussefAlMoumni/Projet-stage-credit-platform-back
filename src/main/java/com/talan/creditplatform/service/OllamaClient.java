@@ -31,9 +31,16 @@ public class OllamaClient {
                 .body(OllamaResponse.class);
 
         if (response != null && response.getResponse() != null) {
-            return response.getResponse();
+            return cleanOutput(response.getResponse());
         }
         
         throw new AppException(ErrorCode.CP_ERR_5000, "Empty or malformed response from Ollama API");
+    }
+
+    private String cleanOutput(String text) {
+        if (text == null) return "";
+        // Strip <think>...</think> reasoning blocks produced by models like deepseek-r1
+        String cleaned = text.replaceAll("(?s)<think>.*?</think>", "").trim();
+        return cleaned.isEmpty() ? text.trim() : cleaned;
     }
 }

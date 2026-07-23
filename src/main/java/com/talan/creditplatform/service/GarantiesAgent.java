@@ -19,9 +19,11 @@ public class GarantiesAgent {
     private static final int NUM_PREDICT = 256;
 
     private static final String DEFAULT_PROMPT = "Évaluateur de Garanties:\n" +
-            "Évaluer la liquidité, la valeur estimée et le ratio de couverture du collatéral proposé " +
-            "par rapport au montant demandé de {montantDemande}.\n" +
-            "Rédiger un avis sur la couverture du risque.";
+            "Évaluer les collatéraux et la couverture par rapport au montant {montantDemande}.\n" +
+            "CONSIGNE STRICTE: Réponse brève et synthétique (3 puces maximum):\n" +
+            "- Ratio de couverture estimé (%)\n" +
+            "- Qualité & Liquidité des actifs\n" +
+            "- Avis sur le risque de garantie en une phrase.";
 
     public GarantiesAgent(OllamaClient ollamaClient, AiModelRepository aiModelRepository,
                           AiPromptRepository aiPromptRepository) {

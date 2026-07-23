@@ -19,9 +19,11 @@ public class HistoriqueAgent {
     private static final int NUM_PREDICT = 256;
 
     private static final String DEFAULT_PROMPT = "Analyste Historique:\n" +
-            "Vérifier les incidents de paiement historiques et l'état des engagements en cours " +
-            "pour le dossier {siren}.\n" +
-            "Fournir un score de risque sur les antécédents.";
+            "Vérifier les incidents de paiement et antécédents bancaires pour le dossier {siren}.\n" +
+            "CONSIGNE STRICTE: Réponse brève et synthétique (3 puces maximum):\n" +
+            "- Incidents récents (Aucun / Faible / Élevé)\n" +
+            "- Score de risque historique (/100)\n" +
+            "- Synthèse des antécédents en une phrase.";
 
     public HistoriqueAgent(OllamaClient ollamaClient, AiModelRepository aiModelRepository,
                            AiPromptRepository aiPromptRepository) {

@@ -19,9 +19,11 @@ public class SolvabiliteAgent {
     private static final int NUM_PREDICT = 256;
 
     private static final String DEFAULT_PROMPT = "Analyste Solvabilité:\n" +
-            "Évaluer la capacité brute de remboursement pour le dossier {siren} " +
-            "concernant un client de type '{clientType}'. Extraire et analyser le ratio d'endettement.\n" +
-            "Générer une recommandation structurée.";
+            "Évaluer la capacité de remboursement pour le dossier {siren} (client: {clientType}).\n" +
+            "CONSIGNE STRICTE: Réponse brève et synthétique (3-4 puces maximum):\n" +
+            "- Ratio d'endettement estimé\n" +
+            "- Capacité de remboursement (Élevée / Moyenne / Faible)\n" +
+            "- Recommandation clé en une phrase.";
 
     public SolvabiliteAgent(OllamaClient ollamaClient, AiModelRepository aiModelRepository,
                             AiPromptRepository aiPromptRepository) {

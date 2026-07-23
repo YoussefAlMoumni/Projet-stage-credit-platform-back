@@ -19,9 +19,8 @@ public class ConformiteAgent {
     private static final int NUM_PREDICT = 256;
 
     private static final String DEFAULT_PROMPT = "Officier de Conformité:\n" +
-            "Exécuter les vérifications réglementaires d'usage (KYC/AML) sur le dossier {siren}.\n" +
-            "CONTRAINTE DE FORMAT STRICTE: Votre réponse DOIT commencer explicitement par l'un des drapeaux suivants:\n" +
-            "soit 'STATUT: APPROUVE' soit 'STATUT: REFUS'. Justifier ensuite votre choix.";
+            "Vérifications réglementaires (KYC/AML) pour le dossier {siren}.\n" +
+            "CONSIGNE STRICTE: Votre réponse DOIT commencer par 'STATUT: APPROUVE' ou 'STATUT: REFUS' suivi de 2 puces synthétiques de justification.";
 
     public ConformiteAgent(OllamaClient ollamaClient, AiModelRepository aiModelRepository,
                            AiPromptRepository aiPromptRepository) {

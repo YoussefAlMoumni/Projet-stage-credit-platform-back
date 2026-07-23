@@ -99,6 +99,45 @@ public class DossierController {
         }
     }
 
+    @GetMapping(value = "/{value}/ai-decision/stream", produces = org.springframework.http.MediaType.TEXT_EVENT_STREAM_VALUE)
+    public org.springframework.web.servlet.mvc.method.annotation.SseEmitter streamAiDecision(@PathVariable String value,
+                                                                                             @RequestParam(defaultValue = "FAST") String mode) {
+        Optional<Dossier> dossierOpt = findBySirenOrId(value);
+        if (dossierOpt.isEmpty()) {
+            org.springframework.web.servlet.mvc.method.annotation.SseEmitter emitter = new org.springframework.web.servlet.mvc.method.annotation.SseEmitter();
+            emitter.completeWithError(new RuntimeException("Dossier not found"));
+            return emitter;
+        }
+
+        org.springframework.web.servlet.mvc.method.annotation.SseEmitter emitter = new org.springframework.web.servlet.mvc.method.annotation.SseEmitter(300000L); // 5 minutes timeout
+        
+        java.util.concurrent.CompletableFuture.runAsync(() -> {
+            try {
+                Evaluation evaluation = pipelineOrchestrator.evaluateWithProgress(dossierOpt.get(), mode, event -> {
+                    try {
+                        emitter.send(org.springframework.web.servlet.mvc.method.annotation.SseEmitter.event()
+                                .name("message")
+                                .data(event));
+                    } catch (Exception e) {
+                        emitter.completeWithError(e);
+                    }
+                });
+                
+                var stageResults = stageResultRepository.fromEvaluation(evaluation);
+                EvaluationResultDto resultDto = new EvaluationResultDto(evaluation, stageResults);
+                
+                emitter.send(org.springframework.web.servlet.mvc.method.annotation.SseEmitter.event()
+                        .name("complete")
+                        .data(resultDto));
+                emitter.complete();
+            } catch (Exception e) {
+                emitter.completeWithError(e);
+            }
+        });
+
+        return emitter;
+    }
+
     @GetMapping("/{value}/ai-decision")
     public ResponseEntity<?> getLatestAiDecision(@PathVariable String value) {
         Optional<Dossier> dossierOpt = findBySirenOrId(value);

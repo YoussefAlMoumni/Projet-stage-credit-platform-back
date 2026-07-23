@@ -19,13 +19,15 @@ public class SupervisorAgent {
     private static final int NUM_PREDICT = 768;
 
     private static final String DEFAULT_PROMPT = "Directeur d'Engagement (Superviseur):\n" +
-            "Consolider les rapports des 4 spécialistes ci-dessous pour formuler la décision d'octroi finale.\n\n" +
-            "### Données de base:\n Dossier: {siren} | Montant: {montantDemande}\n\n" +
-            "### Analyse Solvabilité:\n {solvabilite}\n\n" +
-            "### Analyse Historique:\n {historique}\n\n" +
-            "### Analyse Garanties:\n {garanties}\n\n" +
-            "### Contrôle Conformité:\n {conformite}\n\n" +
-            "Rédiger un rapport de décision complet, clair et formalisé au format Markdown.";
+            "Consolider les rapports des 4 spécialistes pour formuler la décision d'octroi finale.\n" +
+            "CONSIGNE STRICTE: Réponse structurée, claire et synthétique en Markdown:\n" +
+            "### Décision: [FAVORABLE / DEFAVORABLE / AVEC RESERVE]\n" +
+            "- **Solvabilité**: {solvabilite}\n" +
+            "- **Historique**: {historique}\n" +
+            "- **Garanties**: {garanties}\n" +
+            "- **Conformité**: {conformite}\n\n" +
+            "### Synthèse Executive\n" +
+            "[Maximum 3 phrases synthétiques résumant le motif de la décision].";
 
     public SupervisorAgent(OllamaClient ollamaClient, AiModelRepository aiModelRepository,
                            AiPromptRepository aiPromptRepository) {

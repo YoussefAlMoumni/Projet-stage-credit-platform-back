@@ -53,10 +53,10 @@ public class PipelineOrchestrator {
 
         logger.info("Starting pipeline for dossier {} with mode {}", dossier.getId(), mode);
 
-        String solvabiliteOut = runStage("solvency", eval, () -> solvabiliteAgent.run(dossier, workerCtx, workerKeepAlive));
-        String historiqueOut = runStage("history", eval, () -> historiqueAgent.run(dossier, workerCtx, workerKeepAlive));
-        String garantiesOut = runStage("guarantees", eval, () -> garantiesAgent.run(dossier, workerCtx, workerKeepAlive));
-        String conformiteOut = runStage("compliance", eval, () -> conformiteAgent.run(dossier, workerCtx, workerKeepAlive));
+        String solvabiliteOut = runStage("solvency", eval, 0, null, () -> solvabiliteAgent.run(dossier, workerCtx, workerKeepAlive));
+        String historiqueOut = runStage("history", eval, 0, null, () -> historiqueAgent.run(dossier, workerCtx, workerKeepAlive));
+        String garantiesOut = runStage("guarantees", eval, 0, null, () -> garantiesAgent.run(dossier, workerCtx, workerKeepAlive));
+        String conformiteOut = runStage("compliance", eval, 0, null, () -> conformiteAgent.run(dossier, workerCtx, workerKeepAlive));
 
         logger.info("Starting supervisor stage for dossier {}", dossier.getId());
         long start = System.currentTimeMillis();
@@ -71,8 +71,48 @@ public class PipelineOrchestrator {
         return eval;
     }
 
-    private String runStage(String stageName, Evaluation eval, StageRunner runner) {
+    @Transactional
+    public Evaluation evaluateWithProgress(Dossier dossier, String mode, java.util.function.Consumer<com.talan.creditplatform.model.dto.PipelineStageEvent> listener) {
+        int workerCtx = "FULL".equalsIgnoreCase(mode) ? 4096 : 2048;
+        String workerKeepAlive = "FULL".equalsIgnoreCase(mode) ? "300s" : "0s";
+        int supervisorCtx = "FULL".equalsIgnoreCase(mode) ? 8192 : 4096;
+        String supervisorKeepAlive = "FULL".equalsIgnoreCase(mode) ? "300s" : "0s";
+
+        Evaluation eval = new Evaluation();
+        eval.setDossier(dossier);
+        eval.setMode(mode);
+        eval.setAiModel(aiModelRepository.findFirstByStageNameAndActiveTrue("supervisor")
+                .orElseGet(() -> aiModelRepository.save(
+                        new com.talan.creditplatform.model.entity.AiModel("supervisor", "deepseek-r1:14b", supervisorCtx, 0.4, supervisorKeepAlive, true)
+                )));
+        eval = evaluationRepository.save(eval);
+
+        logger.info("Starting pipeline for dossier {} with mode {}", dossier.getId(), mode);
+
+        String solvabiliteOut = runStage("solvency", eval, 15, listener, () -> solvabiliteAgent.run(dossier, workerCtx, workerKeepAlive));
+        String historiqueOut = runStage("history", eval, 35, listener, () -> historiqueAgent.run(dossier, workerCtx, workerKeepAlive));
+        String garantiesOut = runStage("guarantees", eval, 55, listener, () -> garantiesAgent.run(dossier, workerCtx, workerKeepAlive));
+        String conformiteOut = runStage("compliance", eval, 75, listener, () -> conformiteAgent.run(dossier, workerCtx, workerKeepAlive));
+
+        logger.info("Starting supervisor stage for dossier {}", dossier.getId());
+        long start = System.currentTimeMillis();
+        if (listener != null) listener.accept(new com.talan.creditplatform.model.dto.PipelineStageEvent("supervisor", "STARTED", 85, null, null));
+        String finalReport = supervisorAgent.runSuperviseur(dossier, solvabiliteOut, historiqueOut, garantiesOut, conformiteOut, supervisorCtx, supervisorKeepAlive);
+        long duration = System.currentTimeMillis() - start;
+
+        eval.setFinalReport(finalReport);
+        eval.setSupervisorDurationMs(toIntDuration(duration));
+        evaluationRepository.save(eval);
+        
+        if (listener != null) listener.accept(new com.talan.creditplatform.model.dto.PipelineStageEvent("supervisor", "COMPLETED", 100, finalReport, toIntDuration(duration)));
+
+        logger.info("Pipeline completed for dossier {} in {} ms", dossier.getId(), duration);
+        return eval;
+    }
+
+    private String runStage(String stageName, Evaluation eval, int progressStarted, java.util.function.Consumer<com.talan.creditplatform.model.dto.PipelineStageEvent> listener, StageRunner runner) {
         logger.info("Running stage: {}", stageName);
+        if (listener != null) listener.accept(new com.talan.creditplatform.model.dto.PipelineStageEvent(stageName, "STARTED", progressStarted, null, null));
         long start = System.currentTimeMillis();
         String result = runner.run();
         long duration = System.currentTimeMillis() - start;
@@ -97,6 +137,8 @@ public class PipelineOrchestrator {
             default -> throw new IllegalArgumentException("Unknown stage: " + stageName);
         }
         evaluationRepository.save(eval);
+
+        if (listener != null) listener.accept(new com.talan.creditplatform.model.dto.PipelineStageEvent(stageName, "COMPLETED", progressStarted + 15, result, toIntDuration(duration)));
 
         return result;
     }
