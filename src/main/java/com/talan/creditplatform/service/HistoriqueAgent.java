@@ -20,7 +20,8 @@ public class HistoriqueAgent {
 
     private static final String DEFAULT_PROMPT = "Analyste Historique:\n" +
             "Vérifier les incidents de paiement et antécédents bancaires pour le dossier {siren}.\n" +
-            "CONSIGNE STRICTE: Réponse brève et synthétique (3 puces maximum):\n" +
+            "CONSIGNE STRICTE: Réponse brève et synthétique (3-4 puces maximum):\n" +
+            "- Décision: [FAVORABLE / DEFAVORABLE]\n" +
             "- Incidents récents (Aucun / Faible / Élevé)\n" +
             "- Score de risque historique (/100)\n" +
             "- Synthèse des antécédents en une phrase.";

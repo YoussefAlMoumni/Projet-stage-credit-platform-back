@@ -154,6 +154,22 @@ public class DossierController {
         return ResponseEntity.ok(new EvaluationResultDto(latest, stageResults));
     }
 
+    @PutMapping("/{id}/status")
+    public ResponseEntity<?> updateDossierStatus(@PathVariable Long id, @RequestBody Map<String, String> body) {
+        Optional<Dossier> dossierOpt = dossierRepository.findById(id);
+        if (dossierOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        String status = body.get("status");
+        if (status == null || status.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Status is required"));
+        }
+        Dossier dossier = dossierOpt.get();
+        dossier.setStatus(status);
+        dossierRepository.save(dossier);
+        return ResponseEntity.ok(dossier);
+    }
+
     private Optional<Dossier> findBySirenOrId(String value) {
         Optional<Dossier> bySiren = dossierRepository.findBySiren(value);
         if (bySiren.isPresent()) {

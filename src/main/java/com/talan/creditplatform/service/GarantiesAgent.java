@@ -20,7 +20,8 @@ public class GarantiesAgent {
 
     private static final String DEFAULT_PROMPT = "Évaluateur de Garanties:\n" +
             "Évaluer les collatéraux et la couverture par rapport au montant {montantDemande}.\n" +
-            "CONSIGNE STRICTE: Réponse brève et synthétique (3 puces maximum):\n" +
+            "CONSIGNE STRICTE: Réponse brève et synthétique (3-4 puces maximum):\n" +
+            "- Décision: [FAVORABLE / DEFAVORABLE]\n" +
             "- Ratio de couverture estimé (%)\n" +
             "- Qualité & Liquidité des actifs\n" +
             "- Avis sur le risque de garantie en une phrase.";

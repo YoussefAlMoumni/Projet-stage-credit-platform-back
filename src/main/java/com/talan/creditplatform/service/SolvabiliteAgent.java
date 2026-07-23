@@ -21,6 +21,7 @@ public class SolvabiliteAgent {
     private static final String DEFAULT_PROMPT = "Analyste Solvabilité:\n" +
             "Évaluer la capacité de remboursement pour le dossier {siren} (client: {clientType}).\n" +
             "CONSIGNE STRICTE: Réponse brève et synthétique (3-4 puces maximum):\n" +
+            "- Décision: [FAVORABLE / DEFAVORABLE]\n" +
             "- Ratio d'endettement estimé\n" +
             "- Capacité de remboursement (Élevée / Moyenne / Faible)\n" +
             "- Recommandation clé en une phrase.";
