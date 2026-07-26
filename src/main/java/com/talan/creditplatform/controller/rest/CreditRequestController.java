@@ -7,6 +7,7 @@ import com.talan.creditplatform.repository.DossierRepository;
 import com.talan.creditplatform.repository.EvaluationRepository;
 import com.talan.creditplatform.repository.StageResultRepository;
 import com.talan.creditplatform.service.PipelineOrchestrator;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -22,6 +23,7 @@ public class CreditRequestController {
     private final EvaluationRepository evaluationRepository;
     private final StageResultRepository stageResultRepository;
 
+    @Autowired
     public CreditRequestController(PipelineOrchestrator pipelineOrchestrator, DossierRepository dossierRepository,
                                    EvaluationRepository evaluationRepository, StageResultRepository stageResultRepository) {
         this.pipelineOrchestrator = pipelineOrchestrator;

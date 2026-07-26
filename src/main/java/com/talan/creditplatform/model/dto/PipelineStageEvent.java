@@ -5,16 +5,22 @@ public class PipelineStageEvent {
     private String status; // STARTED, COMPLETED, FAILED
     private int progress; // 0..100
     private String output;
+    private String summary;
     private Integer durationMs;
 
     public PipelineStageEvent() {
     }
 
     public PipelineStageEvent(String stageName, String status, int progress, String output, Integer durationMs) {
+        this(stageName, status, progress, output, null, durationMs);
+    }
+
+    public PipelineStageEvent(String stageName, String status, int progress, String output, String summary, Integer durationMs) {
         this.stageName = stageName;
         this.status = status;
         this.progress = progress;
         this.output = output;
+        this.summary = summary;
         this.durationMs = durationMs;
     }
 
@@ -26,6 +32,8 @@ public class PipelineStageEvent {
     public void setProgress(int progress) { this.progress = progress; }
     public String getOutput() { return output; }
     public void setOutput(String output) { this.output = output; }
+    public String getSummary() { return summary; }
+    public void setSummary(String summary) { this.summary = summary; }
     public Integer getDurationMs() { return durationMs; }
     public void setDurationMs(Integer durationMs) { this.durationMs = durationMs; }
 }

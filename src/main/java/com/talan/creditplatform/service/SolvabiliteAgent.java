@@ -16,7 +16,6 @@ public class SolvabiliteAgent {
     private final AiPromptRepository aiPromptRepository;
     private static final String STAGE_NAME = "solvency";
     private static final String FALLBACK_MODEL = "deepseek-r1:8b";
-    private static final int NUM_PREDICT = 256;
 
     private static final String DEFAULT_PROMPT = "Analyste Solvabilité:\n" +
             "Évaluer la capacité de remboursement pour le dossier {siren} (client: {clientType}).\n" +
@@ -58,7 +57,7 @@ public class SolvabiliteAgent {
     }
 
     private String execute(String prompt, String modelName, int numCtx, String keepAlive, Double temperature) {
-        OllamaOptions options = new OllamaOptions(numCtx, NUM_PREDICT, temperature);
+        OllamaOptions options = new OllamaOptions(numCtx, temperature);
         OllamaRequest request = new OllamaRequest(modelName, prompt, options, keepAlive);
         return ollamaClient.generate(request);
     }

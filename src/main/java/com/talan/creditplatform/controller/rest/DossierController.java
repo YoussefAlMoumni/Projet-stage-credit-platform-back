@@ -1,5 +1,6 @@
 package com.talan.creditplatform.controller.rest;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.talan.creditplatform.model.entity.Dossier;
 import com.talan.creditplatform.model.entity.Evaluation;
 import com.talan.creditplatform.model.dto.EvaluationResultDto;
@@ -8,6 +9,7 @@ import com.talan.creditplatform.repository.EvaluationRepository;
 import com.talan.creditplatform.repository.StageResultRepository;
 import com.talan.creditplatform.repository.UserRepository;
 import com.talan.creditplatform.service.PipelineOrchestrator;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
@@ -26,15 +28,17 @@ public class DossierController {
     private final EvaluationRepository evaluationRepository;
     private final StageResultRepository stageResultRepository;
     private final PipelineOrchestrator pipelineOrchestrator;
+    private final ObjectMapper objectMapper;
 
     public DossierController(DossierRepository dossierRepository, UserRepository userRepository,
                              EvaluationRepository evaluationRepository, StageResultRepository stageResultRepository,
-                             PipelineOrchestrator pipelineOrchestrator) {
+                             PipelineOrchestrator pipelineOrchestrator, ObjectMapper objectMapper) {
         this.dossierRepository = dossierRepository;
         this.userRepository = userRepository;
         this.evaluationRepository = evaluationRepository;
         this.stageResultRepository = stageResultRepository;
         this.pipelineOrchestrator = pipelineOrchestrator;
+        this.objectMapper = objectMapper;
     }
 
     @GetMapping
@@ -110,32 +114,67 @@ public class DossierController {
         }
 
         org.springframework.web.servlet.mvc.method.annotation.SseEmitter emitter = new org.springframework.web.servlet.mvc.method.annotation.SseEmitter(300000L); // 5 minutes timeout
-        
+        // Guard against double-complete (listener thread vs. outer catch race).
+        java.util.concurrent.atomic.AtomicBoolean completed = new java.util.concurrent.atomic.AtomicBoolean(false);
+
         java.util.concurrent.CompletableFuture.runAsync(() -> {
             try {
                 Evaluation evaluation = pipelineOrchestrator.evaluateWithProgress(dossierOpt.get(), mode, event -> {
+                    if (completed.get()) return; // emitter already closed
                     try {
+                        // Serialize to JSON string explicitly — passing a raw object to
+                        // emitter.send() relies on a message converter that may not be
+                        // registered for text/event-stream (Issue 3 fix).
+                        String json = objectMapper.writeValueAsString(event);
                         emitter.send(org.springframework.web.servlet.mvc.method.annotation.SseEmitter.event()
                                 .name("message")
-                                .data(event));
+                                .data(json, MediaType.APPLICATION_JSON));
                     } catch (Exception e) {
-                        emitter.completeWithError(e);
+                        if (completed.compareAndSet(false, true)) {
+                            sendErrorEvent(emitter, "Event serialization failed: " + e.getMessage());
+                        }
                     }
                 });
-                
+
+                if (completed.get()) return;
+
                 var stageResults = stageResultRepository.fromEvaluation(evaluation);
                 EvaluationResultDto resultDto = new EvaluationResultDto(evaluation, stageResults);
-                
+
+                // Serialize result DTO to JSON string before sending — same Issue 3 fix.
+                String json = objectMapper.writeValueAsString(resultDto);
                 emitter.send(org.springframework.web.servlet.mvc.method.annotation.SseEmitter.event()
                         .name("complete")
-                        .data(resultDto));
-                emitter.complete();
+                        .data(json, MediaType.APPLICATION_JSON));
+                if (completed.compareAndSet(false, true)) {
+                    emitter.complete();
+                }
             } catch (Exception e) {
-                emitter.completeWithError(e);
+                if (completed.compareAndSet(false, true)) {
+                    sendErrorEvent(emitter, e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName());
+                }
             }
         });
 
         return emitter;
+    }
+
+    /**
+     * Sends a structured JSON error event and then completes the SSE emitter.
+     * Using objectMapper ensures the payload is a valid JSON string, not a raw
+     * LinkedHashMap or exception toString().
+     */
+    private void sendErrorEvent(org.springframework.web.servlet.mvc.method.annotation.SseEmitter emitter, String message) {
+        try {
+            String errorJson = objectMapper.writeValueAsString(
+                    java.util.Map.of("status", "ERROR", "message", message != null ? message : "Unknown error"));
+            emitter.send(org.springframework.web.servlet.mvc.method.annotation.SseEmitter.event()
+                    .name("error")
+                    .data(errorJson, MediaType.APPLICATION_JSON));
+        } catch (Exception ignored) {
+            // If we can't even send the error event, just complete with error below.
+        }
+        emitter.completeWithError(new RuntimeException(message));
     }
 
     @GetMapping("/{value}/ai-decision")

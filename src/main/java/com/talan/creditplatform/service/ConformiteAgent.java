@@ -16,7 +16,6 @@ public class ConformiteAgent {
     private final AiPromptRepository aiPromptRepository;
     private static final String STAGE_NAME = "compliance";
     private static final String FALLBACK_MODEL = "deepseek-r1:8b";
-    private static final int NUM_PREDICT = 256;
 
     private static final String DEFAULT_PROMPT = "Officier de Conformité:\n" +
             "Vérifications réglementaires (KYC/AML) pour le dossier {siren}.\n" +
@@ -53,7 +52,7 @@ public class ConformiteAgent {
     }
 
     private String execute(String prompt, String modelName, int numCtx, String keepAlive, Double temperature) {
-        OllamaOptions options = new OllamaOptions(numCtx, NUM_PREDICT, temperature);
+        OllamaOptions options = new OllamaOptions(numCtx, temperature);
         OllamaRequest request = new OllamaRequest(modelName, prompt, options, keepAlive);
         return ollamaClient.generate(request);
     }

@@ -16,10 +16,10 @@ public class HistoriqueAgent {
     private final AiPromptRepository aiPromptRepository;
     private static final String STAGE_NAME = "history";
     private static final String FALLBACK_MODEL = "deepseek-r1:8b";
-    private static final int NUM_PREDICT = 256;
 
     private static final String DEFAULT_PROMPT = "Analyste Historique:\n" +
             "Vérifier les incidents de paiement et antécédents bancaires pour le dossier {siren}.\n" +
+            "Nombre d'incidents: {incidentCount}\n" +
             "CONSIGNE STRICTE: Réponse brève et synthétique (3-4 puces maximum):\n" +
             "- Décision: [FAVORABLE / DEFAVORABLE]\n" +
             "- Incidents récents (Aucun / Faible / Élevé)\n" +
@@ -57,7 +57,7 @@ public class HistoriqueAgent {
     }
 
     private String execute(String prompt, String modelName, int numCtx, String keepAlive, Double temperature) {
-        OllamaOptions options = new OllamaOptions(numCtx, NUM_PREDICT, temperature);
+        OllamaOptions options = new OllamaOptions(numCtx, temperature);
         OllamaRequest request = new OllamaRequest(modelName, prompt, options, keepAlive);
         return ollamaClient.generate(request);
     }

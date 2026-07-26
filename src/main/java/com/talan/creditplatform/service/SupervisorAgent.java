@@ -6,20 +6,25 @@ import com.talan.creditplatform.model.entity.Dossier;
 import com.talan.creditplatform.repository.AiModelRepository;
 import com.talan.creditplatform.repository.AiPromptRepository;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 @Service
 public class SupervisorAgent {
+
+    private static final Logger logger = LoggerFactory.getLogger(SupervisorAgent.class);
 
     private final OllamaClient ollamaClient;
     private final AiModelRepository aiModelRepository;
     private final AiPromptRepository aiPromptRepository;
     private static final String STAGE_NAME = "supervisor";
     private static final String FALLBACK_MODEL = "deepseek-r1:14b";
-    private static final int NUM_PREDICT = 768;
 
     private static final String DEFAULT_PROMPT = "Directeur d'Engagement (Superviseur):\n" +
             "Consolider les rapports des 4 spécialistes pour formuler la décision d'octroi finale.\n" +
+            "Dossier SIREN: {siren}\n" +
+            "Montant demandé: {montantDemande}\n\n" +
             "CONSIGNE STRICTE: Réponse structurée, claire et synthétique en Markdown:\n" +
             "### Décision: [FAVORABLE / DEFAVORABLE / AVEC RESERVE]\n" +
             "- **Solvabilité**: {solvabilite}\n" +
@@ -53,19 +58,24 @@ public class SupervisorAgent {
                     .orElse(DEFAULT_PROMPT);
         }
 
+        // Null-check every stage output before substitution: String.replace() throws
+        // NullPointerException if the replacement argument is null (Issue 2 fix).
         String prompt = promptTemplate
                 .replace("{siren}", dossier.getSiren() != null ? dossier.getSiren() : "N/A")
                 .replace("{montantDemande}", dossier.getMontantDemande() != null ? dossier.getMontantDemande() : "N/A")
-                .replace("{solvabilite}", solvabiliteOut)
-                .replace("{historique}", historiqueOut)
-                .replace("{garanties}", garantiesOut)
-                .replace("{conformite}", conformiteOut);
+                .replace("{solvabilite}", solvabiliteOut != null ? solvabiliteOut : "[no response]")
+                .replace("{historique}", historiqueOut != null ? historiqueOut : "[no response]")
+                .replace("{garanties}", garantiesOut != null ? garantiesOut : "[no response]")
+                .replace("{conformite}", conformiteOut != null ? conformiteOut : "[no response]");
 
         prompt += "\n\nCONSIGNE STRICTE (Priorité absolue) : Votre réponse DOIT être structurée, claire et synthétique en Markdown.\n" +
                   "Commencez obligatoirement par '### Décision: [FAVORABLE / DEFAVORABLE / AVEC RESERVE]'.";
 
-        OllamaOptions options = new OllamaOptions(numCtx, NUM_PREDICT, temperature);
+        OllamaOptions options = new OllamaOptions(numCtx, temperature);
         OllamaRequest request = new OllamaRequest(modelName, prompt, options, keepAlive);
-        return ollamaClient.generate(request);
+        logger.debug("SupervisorAgent sending prompt (trimmed): {}", prompt == null ? "" : (prompt.length() > 300 ? prompt.substring(0,300) + "..." : prompt));
+        String result = ollamaClient.generate(request);
+        logger.debug("SupervisorAgent received final report (len={}): {}", result == null ? 0 : result.length(), result == null ? "<null>" : (result.length() > 400 ? result.substring(0,400) + "..." : result));
+        return result;
     }
 }
