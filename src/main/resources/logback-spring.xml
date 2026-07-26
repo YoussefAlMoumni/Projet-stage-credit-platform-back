@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <property name="logPattern" value="%d{yyyy-MM-dd HH:mm:ss} | %-5level | %-15.25thread | %X{dd.user:-anonymous} | %X{dd.executionTime:-0ms} | %X{dd.httpCode:----} | %msg %ex%n" />
+
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
+            <providers>
+                <timestamp>
+                    <timeZone>UTC</timeZone>
+                    <fieldName>timestamp</fieldName>
+                    <pattern>yyyy-MM-dd'T'HH:mm:ss.SSS'Z'</pattern>
+                </timestamp>
+                <logLevel>
+                    <fieldName>level</fieldName>
+                </logLevel>
+                <provider class="com.talan.creditplatform.logging.LogLevelValueJsonProvider">
+                    <fieldName>level_value</fieldName>
+                </provider>
+                <threadName>
+                    <fieldName>thread_name</fieldName>
+                </threadName>
+                <pattern>
+                    <pattern>{"traceId":"%X{traceId:-0}"}</pattern>
+                </pattern>
+                <pattern>
+                    <pattern>{"user":"%X{user:-}"}</pattern>
+                </pattern>
+                <pattern>
+                    <pattern>{"httpCode":"%X{httpCode:-}"}</pattern>
+                </pattern>
+                <provider class="com.talan.creditplatform.logging.TrimmedMessageJsonProvider">
+                    <fieldName>message</fieldName>
+                </provider>
+                <pattern>
+                    <pattern>{"executionTime":"%X{executionTime:-}"}</pattern>
+                </pattern>
+                <pattern>
+                    <pattern>{"executionSpeed":"%X{executionSpeed:-}"}</pattern>
+                </pattern>
+                <pattern>
+                    <pattern>{"logger":"%logger"}</pattern>
+                </pattern>
+            </providers>
+        </encoder>
+    </appender>
+
+    <springProfile name="local">
+        <appender name="DEVCONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder>
+                <charset>UTF-8</charset>
+                <Pattern>${logPattern}</Pattern>
+            </encoder>
+        </appender>
+        <root level="INFO">
+            <appender-ref ref="DEVCONSOLE"/>
+        </root>
+    </springProfile>
+
+    <springProfile name="!local">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+    </springProfile>
+
+    <logger name="org.hibernate" level="WARN"/>
+    <logger name="org.hibernate.SQL" level="WARN"/>
+    <logger name="org.hibernate.type.descriptor.sql" level="WARN"/>
+    <logger name="org.zalando.logbook" level="TRACE"/>
+</configuration>
