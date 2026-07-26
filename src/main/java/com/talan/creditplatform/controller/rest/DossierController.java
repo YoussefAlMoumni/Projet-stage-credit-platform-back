@@ -8,6 +8,7 @@ import com.talan.creditplatform.repository.DossierRepository;
 import com.talan.creditplatform.repository.EvaluationRepository;
 import com.talan.creditplatform.repository.StageResultRepository;
 import com.talan.creditplatform.repository.UserRepository;
+import com.talan.creditplatform.service.EventService;
 import com.talan.creditplatform.service.PipelineOrchestrator;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -29,16 +30,18 @@ public class DossierController {
     private final StageResultRepository stageResultRepository;
     private final PipelineOrchestrator pipelineOrchestrator;
     private final ObjectMapper objectMapper;
+    private final EventService eventService;
 
     public DossierController(DossierRepository dossierRepository, UserRepository userRepository,
                              EvaluationRepository evaluationRepository, StageResultRepository stageResultRepository,
-                             PipelineOrchestrator pipelineOrchestrator, ObjectMapper objectMapper) {
+                             PipelineOrchestrator pipelineOrchestrator, ObjectMapper objectMapper, EventService eventService) {
         this.dossierRepository = dossierRepository;
         this.userRepository = userRepository;
         this.evaluationRepository = evaluationRepository;
         this.stageResultRepository = stageResultRepository;
         this.pipelineOrchestrator = pipelineOrchestrator;
         this.objectMapper = objectMapper;
+        this.eventService = eventService;
     }
 
     @GetMapping
@@ -68,6 +71,53 @@ public class DossierController {
             dossier.getCorporate().setDossier(dossier);
         }
         Dossier saved = dossierRepository.save(dossier);
+        eventService.emitDossiersChanged();
+        return ResponseEntity.ok(saved);
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<Dossier> updateDossier(@PathVariable Long id, @Valid @RequestBody Dossier dossier) {
+        Optional<Dossier> existingDossierOpt = dossierRepository.findById(id);
+        if (existingDossierOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        
+        Dossier existing = existingDossierOpt.get();
+        // Preserve un-modifiable fields if necessary
+        dossier.setId(id);
+        dossier.setCreationDate(existing.getCreationDate());
+        if (dossier.getAssignedAnalyst() == null) {
+            dossier.setAssignedAnalyst(existing.getAssignedAnalyst());
+        }
+        if (dossier.getStatus() == null) {
+            dossier.setStatus(existing.getStatus());
+        }
+
+        assignDefaultAnalystIfMissing(dossier);
+        // Ensure bi-directional relationships
+        if (dossier.getLoans() != null) {
+            dossier.getLoans().forEach(loan -> {
+                loan.setDossier(dossier);
+                if (loan.getCollaterals() != null) {
+                    loan.getCollaterals().forEach(c -> c.setLoan(loan));
+                }
+            });
+        }
+        if (dossier.getCreditHistories() != null) {
+            dossier.getCreditHistories().forEach(h -> h.setDossier(dossier));
+        }
+        if (dossier.getIndividual() != null) {
+            dossier.getIndividual().setDossier(dossier);
+        }
+        if (dossier.getCorporate() != null) {
+            dossier.getCorporate().setDossier(dossier);
+        }
+        
+        // We have to clear the existing collections and addAll to ensure orphanRemoval works gracefully,
+        // or just let Spring Data JPA do its magic with save().
+        // Calling save() with the updated object will merge it properly assuming IDs are correctly passed.
+        Dossier saved = dossierRepository.save(dossier);
+        eventService.emitDossiersChanged();
         return ResponseEntity.ok(saved);
     }
 
@@ -84,6 +134,7 @@ public class DossierController {
             return ResponseEntity.notFound().build();
         }
         dossierRepository.deleteById(id);
+        eventService.emitDossiersChanged();
         return ResponseEntity.ok(Map.of("message", "Dossier deleted."));
     }
 
@@ -206,6 +257,7 @@ public class DossierController {
         Dossier dossier = dossierOpt.get();
         dossier.setStatus(status);
         dossierRepository.save(dossier);
+        eventService.emitDossiersChanged();
         return ResponseEntity.ok(dossier);
     }
 

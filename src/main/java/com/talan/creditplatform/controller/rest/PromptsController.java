@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.util.*;
+import com.talan.creditplatform.service.EventService;
 
 @RestController
 @RequestMapping("/api/prompts")
@@ -17,10 +18,12 @@ public class PromptsController {
 
     private final AiModelRepository aiModelRepository;
     private final AiPromptRepository aiPromptRepository;
+    private final EventService eventService;
 
-    public PromptsController(AiModelRepository aiModelRepository, AiPromptRepository aiPromptRepository) {
+    public PromptsController(AiModelRepository aiModelRepository, AiPromptRepository aiPromptRepository, EventService eventService) {
         this.aiModelRepository = aiModelRepository;
         this.aiPromptRepository = aiPromptRepository;
+        this.eventService = eventService;
     }
 
     @GetMapping
@@ -104,6 +107,7 @@ public class PromptsController {
             aiPromptRepository.save(newPrompt);
         }
 
+        eventService.emitPromptsChanged();
         return ResponseEntity.ok(Map.of("message", "Prompt and model parameters updated."));
     }
 

@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import com.talan.creditplatform.service.EventService;
 
 @RestController
 @CrossOrigin(origins = {"http://localhost:4200", "http://127.0.0.1:4200"})
@@ -20,12 +21,14 @@ public class AdminUserController {
     private final UserRepository userRepository;
     private final UserService userService;
     private final PasswordEncoder passwordEncoder;
+    private final EventService eventService;
 
     public AdminUserController(UserRepository userRepository, UserService userService,
-                               PasswordEncoder passwordEncoder) {
+                               PasswordEncoder passwordEncoder, EventService eventService) {
         this.userRepository = userRepository;
         this.userService = userService;
         this.passwordEncoder = passwordEncoder;
+        this.eventService = eventService;
     }
 
     @GetMapping
@@ -40,6 +43,8 @@ public class AdminUserController {
         }
         user.setPassword(passwordEncoder.encode(user.getPassword()));
         User saved = userRepository.save(user);
+        eventService.emitUsersChanged();
+        eventService.emitAnalystsChanged();
         return ResponseEntity.ok(saved);
     }
 
@@ -52,8 +57,12 @@ public class AdminUserController {
 
     @PutMapping("/{id}")
     public ResponseEntity<User> updateUser(@PathVariable Long id, @Valid @RequestBody User update) {
-        return userService.updateUser(id, update, passwordEncoder)
-                .map(ResponseEntity::ok)
+        Optional<User> updated = userService.updateUser(id, update, passwordEncoder);
+        updated.ifPresent(u -> {
+            eventService.emitUsersChanged();
+            eventService.emitAnalystsChanged();
+        });
+        return updated.map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
     }
 
@@ -68,6 +77,8 @@ public class AdminUserController {
             return ResponseEntity.badRequest().body(Map.of("message", "Cannot delete employee: not marked as fired by manager."));
         }
         userService.deleteUser(id);
+        eventService.emitUsersChanged();
+        eventService.emitAnalystsChanged();
         return ResponseEntity.ok(Map.of("message", "User deleted."));
     }
 
@@ -80,6 +91,8 @@ public class AdminUserController {
         User user = userOpt.get();
         user.setFired(true);
         userRepository.save(user);
+        eventService.emitUsersChanged();
+        eventService.emitAnalystsChanged();
         return ResponseEntity.ok(Map.of("message", "Employee marked as fired."));
     }
 }
