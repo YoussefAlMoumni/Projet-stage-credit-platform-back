@@ -41,7 +41,12 @@ public class SupervisorAgent {
         this.aiPromptRepository = aiPromptRepository;
     }
 
-    public String runSuperviseur(Dossier dossier, String solvabiliteOut, String historiqueOut,
+    /**
+     * @param dossierContext Pre-built context string from {@link DossierContextBuilder}.
+     *                       Must be built inside a Hibernate session (i.e. before async dispatch)
+     *                       to avoid LazyInitializationException / JdbcValuesSourceProcessingState errors.
+     */
+    public String runSuperviseur(Dossier dossier, String dossierContext, String solvabiliteOut, String historiqueOut,
                                  String garantiesOut, String conformiteOut, int numCtx, String keepAlive) {
 
         AiModel model = aiModelRepository.findFirstByStageNameAndActiveTrue(STAGE_NAME).orElse(null);
@@ -57,8 +62,6 @@ public class SupervisorAgent {
                     .map(AiPrompt::getPromptText)
                     .orElse(DEFAULT_PROMPT);
         }
-
-        String dossierContext = DossierContextBuilder.build(dossier);
 
         // Null-check every stage output before substitution: String.replace() throws
         // NullPointerException if the replacement argument is null (Issue 2 fix).

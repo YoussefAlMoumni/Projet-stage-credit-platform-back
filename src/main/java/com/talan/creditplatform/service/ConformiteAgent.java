@@ -28,7 +28,12 @@ public class ConformiteAgent {
         this.aiPromptRepository = aiPromptRepository;
     }
 
-    public String run(Dossier dossier, int numCtx, String keepAlive) {
+    /**
+     * @param dossierContext Pre-built context string from {@link DossierContextBuilder}.
+     *                       Must be built inside a Hibernate session (i.e. before async dispatch)
+     *                       to avoid LazyInitializationException / JdbcValuesSourceProcessingState errors.
+     */
+    public String run(Dossier dossier, String dossierContext, int numCtx, String keepAlive) {
         AiModel model = aiModelRepository.findFirstByStageNameAndActiveTrue(STAGE_NAME).orElse(null);
 
         String modelName = FALLBACK_MODEL;
@@ -42,8 +47,6 @@ public class ConformiteAgent {
                     .map(AiPrompt::getPromptText)
                     .orElse(DEFAULT_PROMPT);
         }
-
-        String dossierContext = DossierContextBuilder.build(dossier);
 
         String prompt = dossierContext + "\n" + promptTemplate
                 .replace("{siren}", dossier.getSiren() != null ? dossier.getSiren() : "N/A");

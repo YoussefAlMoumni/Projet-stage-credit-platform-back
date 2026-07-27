@@ -72,30 +72,36 @@ public class PipelineOrchestrator {
             }
         }
 
+        // Build dossier context BEFORE spawning async threads.
+        // The Hibernate session is bound to this (transactional) thread; lazy
+        // collections would throw JdbcValuesSourceProcessingState if accessed
+        // from a CompletableFuture worker thread.
+        String dossierContext = DossierContextBuilder.build(dossier);
+
         Supplier<StageOutcome> solvSupplier = () -> {
             long s = System.currentTimeMillis();
-            String r = solvabiliteAgent.run(dossier, workerCtx, workerKeepAlive);
+            String r = solvabiliteAgent.run(dossier, dossierContext, workerCtx, workerKeepAlive);
             long d = System.currentTimeMillis() - s;
             return new StageOutcome("solvency", r, d);
         };
 
         Supplier<StageOutcome> histSupplier = () -> {
             long s = System.currentTimeMillis();
-            String r = historiqueAgent.run(dossier, workerCtx, workerKeepAlive);
+            String r = historiqueAgent.run(dossier, dossierContext, workerCtx, workerKeepAlive);
             long d = System.currentTimeMillis() - s;
             return new StageOutcome("history", r, d);
         };
 
         Supplier<StageOutcome> guarSupplier = () -> {
             long s = System.currentTimeMillis();
-            String r = garantiesAgent.run(dossier, workerCtx, workerKeepAlive);
+            String r = garantiesAgent.run(dossier, dossierContext, workerCtx, workerKeepAlive);
             long d = System.currentTimeMillis() - s;
             return new StageOutcome("guarantees", r, d);
         };
 
         Supplier<StageOutcome> confSupplier = () -> {
             long s = System.currentTimeMillis();
-            String r = conformiteAgent.run(dossier, workerCtx, workerKeepAlive);
+            String r = conformiteAgent.run(dossier, dossierContext, workerCtx, workerKeepAlive);
             long d = System.currentTimeMillis() - s;
             return new StageOutcome("compliance", r, d);
         };
@@ -104,6 +110,7 @@ public class PipelineOrchestrator {
         CompletableFuture<StageOutcome> f2 = CompletableFuture.supplyAsync(histSupplier);
         CompletableFuture<StageOutcome> f3 = CompletableFuture.supplyAsync(guarSupplier);
         CompletableFuture<StageOutcome> f4 = CompletableFuture.supplyAsync(confSupplier);
+
 
         CompletableFuture<Void> all = CompletableFuture.allOf(f1, f2, f3, f4);
         try {
@@ -156,8 +163,9 @@ public class PipelineOrchestrator {
 
         logger.info("Starting supervisor stage for dossier {}", dossier.getId());
         long start = System.currentTimeMillis();
-        String finalReport = supervisorAgent.runSuperviseur(dossier, eval.getSolvencyStageOutput(), eval.getHistoryStageOutput(), eval.getGuaranteesStageOutput(), eval.getComplianceStageOutput(), supervisorCtx, supervisorKeepAlive);
+        String finalReport = supervisorAgent.runSuperviseur(dossier, dossierContext, eval.getSolvencyStageOutput(), eval.getHistoryStageOutput(), eval.getGuaranteesStageOutput(), eval.getComplianceStageOutput(), supervisorCtx, supervisorKeepAlive);
         long duration = System.currentTimeMillis() - start;
+
 
         eval.setFinalReport(finalReport);
         eval.setSupervisorDurationMs(toIntDuration(duration));
@@ -199,10 +207,16 @@ public class PipelineOrchestrator {
             }
         }
 
+        // Build dossier context BEFORE spawning async threads.
+        // The Hibernate session is bound to this (transactional) thread; lazy
+        // collections would throw JdbcValuesSourceProcessingState if accessed
+        // from a CompletableFuture worker thread.
+        String dossierContext = DossierContextBuilder.build(dossier);
+
         Supplier<StageOutcome> solvSupplier = () -> {
             if (listener != null) listener.accept(new com.talan.creditplatform.model.dto.PipelineStageEvent("solvency","STARTED",15,null,null));
             long s = System.currentTimeMillis();
-            String r = solvabiliteAgent.run(dossier, workerCtx, workerKeepAlive);
+            String r = solvabiliteAgent.run(dossier, dossierContext, workerCtx, workerKeepAlive);
             long d = System.currentTimeMillis() - s;
             String summary = r != null ? com.talan.creditplatform.model.entity.StageResult.extractSummary(r) : "No response";
             if (listener != null) listener.accept(new com.talan.creditplatform.model.dto.PipelineStageEvent("solvency","COMPLETED",30,r,summary,toIntDuration(d)));
@@ -212,7 +226,7 @@ public class PipelineOrchestrator {
         Supplier<StageOutcome> histSupplier = () -> {
             if (listener != null) listener.accept(new com.talan.creditplatform.model.dto.PipelineStageEvent("history","STARTED",35,null,null));
             long s = System.currentTimeMillis();
-            String r = historiqueAgent.run(dossier, workerCtx, workerKeepAlive);
+            String r = historiqueAgent.run(dossier, dossierContext, workerCtx, workerKeepAlive);
             long d = System.currentTimeMillis() - s;
             String summary = r != null ? com.talan.creditplatform.model.entity.StageResult.extractSummary(r) : "No response";
             if (listener != null) listener.accept(new com.talan.creditplatform.model.dto.PipelineStageEvent("history","COMPLETED",50,r,summary,toIntDuration(d)));
@@ -222,7 +236,7 @@ public class PipelineOrchestrator {
         Supplier<StageOutcome> guarSupplier = () -> {
             if (listener != null) listener.accept(new com.talan.creditplatform.model.dto.PipelineStageEvent("guarantees","STARTED",55,null,null));
             long s = System.currentTimeMillis();
-            String r = garantiesAgent.run(dossier, workerCtx, workerKeepAlive);
+            String r = garantiesAgent.run(dossier, dossierContext, workerCtx, workerKeepAlive);
             long d = System.currentTimeMillis() - s;
             String summary = r != null ? com.talan.creditplatform.model.entity.StageResult.extractSummary(r) : "No response";
             if (listener != null) listener.accept(new com.talan.creditplatform.model.dto.PipelineStageEvent("guarantees","COMPLETED",70,r,summary,toIntDuration(d)));
@@ -232,7 +246,7 @@ public class PipelineOrchestrator {
         Supplier<StageOutcome> confSupplier = () -> {
             if (listener != null) listener.accept(new com.talan.creditplatform.model.dto.PipelineStageEvent("compliance","STARTED",75,null,null));
             long s = System.currentTimeMillis();
-            String r = conformiteAgent.run(dossier, workerCtx, workerKeepAlive);
+            String r = conformiteAgent.run(dossier, dossierContext, workerCtx, workerKeepAlive);
             long d = System.currentTimeMillis() - s;
             String summary = r != null ? com.talan.creditplatform.model.entity.StageResult.extractSummary(r) : "No response";
             if (listener != null) listener.accept(new com.talan.creditplatform.model.dto.PipelineStageEvent("compliance","COMPLETED",85,r,summary,toIntDuration(d)));
@@ -243,6 +257,7 @@ public class PipelineOrchestrator {
         CompletableFuture<StageOutcome> f2 = CompletableFuture.supplyAsync(histSupplier);
         CompletableFuture<StageOutcome> f3 = CompletableFuture.supplyAsync(guarSupplier);
         CompletableFuture<StageOutcome> f4 = CompletableFuture.supplyAsync(confSupplier);
+
 
         CompletableFuture<Void> all = CompletableFuture.allOf(f1, f2, f3, f4);
         try {
@@ -296,8 +311,9 @@ public class PipelineOrchestrator {
         logger.info("Starting supervisor stage for dossier {}", dossier.getId());
         long start = System.currentTimeMillis();
         if (listener != null) listener.accept(new com.talan.creditplatform.model.dto.PipelineStageEvent("supervisor", "STARTED", 85, null, null));
-        String finalReport = supervisorAgent.runSuperviseur(dossier, eval.getSolvencyStageOutput(), eval.getHistoryStageOutput(), eval.getGuaranteesStageOutput(), eval.getComplianceStageOutput(), supervisorCtx, supervisorKeepAlive);
+        String finalReport = supervisorAgent.runSuperviseur(dossier, dossierContext, eval.getSolvencyStageOutput(), eval.getHistoryStageOutput(), eval.getGuaranteesStageOutput(), eval.getComplianceStageOutput(), supervisorCtx, supervisorKeepAlive);
         long duration = System.currentTimeMillis() - start;
+
 
         eval.setFinalReport(finalReport);
         eval.setSupervisorDurationMs(toIntDuration(duration));
