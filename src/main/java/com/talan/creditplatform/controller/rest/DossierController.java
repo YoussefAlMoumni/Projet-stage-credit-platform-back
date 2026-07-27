@@ -50,10 +50,12 @@ public class DossierController {
 
     @GetMapping
     public ResponseEntity<List<Dossier>> getAllDossiers(@AuthenticationPrincipal CustomUserDetails principal) {
-        User caller = principal != null ? principal.getUser() : null;
-        // Analysts can only see their own dossiers; managers and admins see all.
-        if (caller != null && "analyst".equalsIgnoreCase(caller.getRole())) {
-            return ResponseEntity.ok(dossierRepository.findByAssignedAnalyst(caller));
+        if (principal != null) {
+            User caller = userRepository.findByUsername(principal.getUsername()).orElse(null);
+            // Analysts can only see their own dossiers; managers and admins see all.
+            if (caller != null && "analyst".equalsIgnoreCase(caller.getRole())) {
+                return ResponseEntity.ok(dossierRepository.findByAssignedAnalyst(caller));
+            }
         }
         return ResponseEntity.ok(dossierRepository.findAll());
     }
@@ -61,9 +63,12 @@ public class DossierController {
     @PostMapping
     public ResponseEntity<Dossier> createDossier(@Valid @RequestBody Dossier dossier,
                                                  @AuthenticationPrincipal CustomUserDetails principal) {
-        // Automatically assign the authenticated user as analyst when creating
+        // Automatically assign the authenticated user as analyst when creating.
+        // Re-fetch from DB to get an attached Hibernate entity — principal.getUser()
+        // is a detached snapshot from login time and cannot be safely persisted.
         if (dossier.getAssignedAnalyst() == null && principal != null) {
-            dossier.setAssignedAnalyst(principal.getUser());
+            userRepository.findByUsername(principal.getUsername())
+                    .ifPresent(dossier::setAssignedAnalyst);
         }
         assignDefaultAnalystIfMissing(dossier);
         // Ensure bi-directional relationships
@@ -295,10 +300,13 @@ public class DossierController {
      * Returns true if the caller may access the given dossier.
      * Analysts can only access dossiers they were assigned to;
      * managers and admins can access any dossier.
+     * Re-fetches the caller from DB to ensure the entity is attached
+     * and has up-to-date role information.
      */
     private boolean canAccess(Dossier dossier, CustomUserDetails principal) {
         if (principal == null) return false;
-        User caller = principal.getUser();
+        User caller = userRepository.findByUsername(principal.getUsername()).orElse(null);
+        if (caller == null) return false;
         if (!"analyst".equalsIgnoreCase(caller.getRole())) return true; // manager / admin
         User assigned = dossier.getAssignedAnalyst();
         return assigned != null && assigned.getId().equals(caller.getId());

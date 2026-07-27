@@ -33,10 +33,10 @@ public class User {
 
     @Column(nullable = false)
     @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
-    @NotBlank(message = "Password is required")
-    @Size(min = 12, message = "Password must be at least 12 characters")
+    @Size(min = 12, message = "Password must be at least 12 characters", groups = CreateValidationGroup.class)
     @Pattern(regexp = "^(?=.*[0-9])(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>/?]).{12,}$", 
-             message = "Password must contain at least one digit, one uppercase letter, one lowercase letter, and one special character")
+             message = "Password must contain at least one digit, one uppercase letter, one lowercase letter, and one special character", 
+             groups = CreateValidationGroup.class)
     private String password;
 
     @Column(name = "last_name", nullable = false)
@@ -79,34 +79,9 @@ public class User {
         this.username = username;
         this.password = password;
         setRole(role);
-        applyDefaults();
     }
 
-    @PrePersist
-    @PreUpdate
-    protected void applyDefaults() {
-        if (email == null || email.isBlank()) {
-            email = username + "@talan.com";
-        }
-        if (lastName == null || lastName.isBlank()) {
-            lastName = username;
-        }
-        if (firstName == null || firstName.isBlank()) {
-            firstName = username;
-        }
-        if (nationalId == null || nationalId.isBlank()) {
-            nationalId = "NID-" + username;
-        }
-        if (hireDate == null) {
-            hireDate = LocalDate.now();
-        }
-        if (salary == null) {
-            salary = BigDecimal.ZERO;
-        }
-        if (role == null || role.isBlank()) {
-            role = "manager";
-        }
-    }
+
 
     public Long getId() {
         return id;

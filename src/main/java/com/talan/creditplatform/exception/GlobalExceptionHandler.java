@@ -9,6 +9,7 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import java.net.URI;
@@ -80,6 +81,14 @@ public class GlobalExceptionHandler {
         problem.setProperty("validationErrors", errors);
         
         logger.info("Constraint Violation: {}", errors);
+        return problem;
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ProblemDetail handleDataIntegrityViolation(DataIntegrityViolationException ex) {
+        ProblemDetail problem = createProblemDetail(HttpStatus.CONFLICT, "Data Integrity Violation", 
+                "A database constraint was violated, typically due to duplicate unique values (e.g., email or username).", ErrorCode.CP_ERR_1001);
+        logger.warn("Data Integrity Violation: {}", ex.getMessage());
         return problem;
     }
 
