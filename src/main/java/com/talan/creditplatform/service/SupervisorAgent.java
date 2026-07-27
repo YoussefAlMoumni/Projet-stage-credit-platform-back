@@ -58,9 +58,11 @@ public class SupervisorAgent {
                     .orElse(DEFAULT_PROMPT);
         }
 
+        String dossierContext = DossierContextBuilder.build(dossier);
+
         // Null-check every stage output before substitution: String.replace() throws
         // NullPointerException if the replacement argument is null (Issue 2 fix).
-        String prompt = promptTemplate
+        String prompt = dossierContext + "\n" + promptTemplate
                 .replace("{siren}", dossier.getSiren() != null ? dossier.getSiren() : "N/A")
                 .replace("{montantDemande}", dossier.getMontantDemande() != null ? dossier.getMontantDemande() : "N/A")
                 .replace("{solvabilite}", solvabiliteOut != null ? solvabiliteOut : "[no response]")

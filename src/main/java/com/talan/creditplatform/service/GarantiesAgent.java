@@ -47,7 +47,9 @@ public class GarantiesAgent {
                     .orElse(DEFAULT_PROMPT);
         }
 
-        String prompt = promptTemplate
+        String dossierContext = DossierContextBuilder.build(dossier);
+
+        String prompt = dossierContext + "\n" + promptTemplate
                 .replace("{montantDemande}", dossier.getMontantDemande() != null ? dossier.getMontantDemande() : "N/A");
 
         prompt += "\n\nCONSIGNE STRICTE (Priorité absolue) : Votre réponse DOIT être brève (3 à 4 puces maximum) et inclure '- Décision: [FAVORABLE / DEFAVORABLE]'.";

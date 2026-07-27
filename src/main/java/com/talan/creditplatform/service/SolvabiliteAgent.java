@@ -47,7 +47,9 @@ public class SolvabiliteAgent {
                     .orElse(DEFAULT_PROMPT);
         }
 
-        String prompt = promptTemplate
+        String dossierContext = DossierContextBuilder.build(dossier);
+
+        String prompt = dossierContext + "\n" + promptTemplate
                 .replace("{siren}", dossier.getSiren() != null ? dossier.getSiren() : "N/A")
                 .replace("{clientType}", dossier.getClientType() != null ? dossier.getClientType() : "N/A");
 
