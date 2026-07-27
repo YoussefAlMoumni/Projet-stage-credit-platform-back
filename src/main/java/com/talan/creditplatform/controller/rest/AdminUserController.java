@@ -3,9 +3,7 @@ package com.talan.creditplatform.controller.rest;
 import com.talan.creditplatform.model.entity.User;
 import com.talan.creditplatform.repository.UserRepository;
 import com.talan.creditplatform.service.UserService;
-import com.talan.creditplatform.model.entity.CreateValidationGroup;
 import jakarta.validation.Valid;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
@@ -39,11 +37,12 @@ public class AdminUserController {
     }
 
     @PostMapping
-    public ResponseEntity<User> createUser(@Validated(CreateValidationGroup.class) @RequestBody User user) {
+    public ResponseEntity<User> createUser(@Valid @RequestBody User user) {
         if (user.getPassword() == null || user.getPassword().isBlank()) {
             return ResponseEntity.badRequest().build();
         }
-        User saved = userService.createUser(user, passwordEncoder);
+        user.setPassword(passwordEncoder.encode(user.getPassword()));
+        User saved = userRepository.save(user);
         eventService.emitUsersChanged();
         eventService.emitAnalystsChanged();
         return ResponseEntity.ok(saved);
@@ -57,7 +56,7 @@ public class AdminUserController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<User> updateUser(@PathVariable Long id, @Validated @RequestBody User update) {
+    public ResponseEntity<User> updateUser(@PathVariable Long id, @Valid @RequestBody User update) {
         Optional<User> updated = userService.updateUser(id, update, passwordEncoder);
         updated.ifPresent(u -> {
             eventService.emitUsersChanged();

@@ -28,8 +28,8 @@ public class Dossier {
     @Column(name = "creation_date", nullable = false)
     private LocalDateTime creationDate;
 
-    @ManyToOne(optional = true)
-    @JoinColumn(name = "assigned_analyst_id", nullable = true)
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "assigned_analyst_id", nullable = false)
     @JsonIgnoreProperties({"password"})
     private User assignedAnalyst;
 
