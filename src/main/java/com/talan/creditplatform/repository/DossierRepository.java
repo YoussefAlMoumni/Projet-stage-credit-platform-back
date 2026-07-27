@@ -12,6 +12,7 @@ import java.util.List;
 public interface DossierRepository extends JpaRepository<Dossier, Long> {
     Optional<Dossier> findBySiren(String siren);
     List<Dossier> findByStatusOrderByCreationDateAsc(String status);
+    List<Dossier> findByAssignedAnalyst(User analyst);
     long countByAssignedAnalyst(User analyst);
     long countByAssignedAnalystAndStatus(User analyst, String status);
 }

@@ -3,21 +3,25 @@ package com.talan.creditplatform.controller.rest;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.talan.creditplatform.model.entity.Dossier;
 import com.talan.creditplatform.model.entity.Evaluation;
+import com.talan.creditplatform.model.entity.User;
 import com.talan.creditplatform.model.dto.EvaluationResultDto;
 import com.talan.creditplatform.repository.DossierRepository;
 import com.talan.creditplatform.repository.EvaluationRepository;
 import com.talan.creditplatform.repository.StageResultRepository;
 import com.talan.creditplatform.repository.UserRepository;
+import com.talan.creditplatform.security.CustomUserDetails;
 import com.talan.creditplatform.service.EventService;
 import com.talan.creditplatform.service.PipelineOrchestrator;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+
 
 @RestController
 @RequestMapping("/api/dossiers")
@@ -45,12 +49,22 @@ public class DossierController {
     }
 
     @GetMapping
-    public ResponseEntity<List<Dossier>> getAllDossiers() {
+    public ResponseEntity<List<Dossier>> getAllDossiers(@AuthenticationPrincipal CustomUserDetails principal) {
+        User caller = principal != null ? principal.getUser() : null;
+        // Analysts can only see their own dossiers; managers and admins see all.
+        if (caller != null && "analyst".equalsIgnoreCase(caller.getRole())) {
+            return ResponseEntity.ok(dossierRepository.findByAssignedAnalyst(caller));
+        }
         return ResponseEntity.ok(dossierRepository.findAll());
     }
 
     @PostMapping
-    public ResponseEntity<Dossier> createDossier(@Valid @RequestBody Dossier dossier) {
+    public ResponseEntity<Dossier> createDossier(@Valid @RequestBody Dossier dossier,
+                                                 @AuthenticationPrincipal CustomUserDetails principal) {
+        // Automatically assign the authenticated user as analyst when creating
+        if (dossier.getAssignedAnalyst() == null && principal != null) {
+            dossier.setAssignedAnalyst(principal.getUser());
+        }
         assignDefaultAnalystIfMissing(dossier);
         // Ensure bi-directional relationships
         if (dossier.getLoans() != null) {
@@ -122,10 +136,12 @@ public class DossierController {
     }
 
     @GetMapping("/{value}")
-    public ResponseEntity<Dossier> getDossier(@PathVariable String value) {
+    public ResponseEntity<Dossier> getDossier(@PathVariable String value,
+                                              @AuthenticationPrincipal CustomUserDetails principal) {
         Optional<Dossier> dossier = findBySirenOrId(value);
-        return dossier.map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+        if (dossier.isEmpty()) return ResponseEntity.notFound().build();
+        if (!canAccess(dossier.get(), principal)) return ResponseEntity.status(403).build();
+        return ResponseEntity.ok(dossier.get());
     }
 
     @DeleteMapping("/{id}")
@@ -245,11 +261,13 @@ public class DossierController {
     }
 
     @PutMapping("/{id}/status")
-    public ResponseEntity<?> updateDossierStatus(@PathVariable Long id, @RequestBody Map<String, String> body) {
+    public ResponseEntity<?> updateDossierStatus(@PathVariable Long id, @RequestBody Map<String, String> body,
+                                                 @AuthenticationPrincipal CustomUserDetails principal) {
         Optional<Dossier> dossierOpt = dossierRepository.findById(id);
         if (dossierOpt.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
+        if (!canAccess(dossierOpt.get(), principal)) return ResponseEntity.status(403).build();
         String status = body.get("status");
         if (status == null || status.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("message", "Status is required"));
@@ -271,6 +289,19 @@ public class DossierController {
         } catch (NumberFormatException e) {
             return Optional.empty();
         }
+    }
+
+    /**
+     * Returns true if the caller may access the given dossier.
+     * Analysts can only access dossiers they were assigned to;
+     * managers and admins can access any dossier.
+     */
+    private boolean canAccess(Dossier dossier, CustomUserDetails principal) {
+        if (principal == null) return false;
+        User caller = principal.getUser();
+        if (!"analyst".equalsIgnoreCase(caller.getRole())) return true; // manager / admin
+        User assigned = dossier.getAssignedAnalyst();
+        return assigned != null && assigned.getId().equals(caller.getId());
     }
 
     private void assignDefaultAnalystIfMissing(Dossier dossier) {
