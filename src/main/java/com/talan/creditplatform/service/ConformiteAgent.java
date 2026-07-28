@@ -18,8 +18,12 @@ public class ConformiteAgent {
     private static final String FALLBACK_MODEL = "deepseek-r1:8b";
 
     private static final String DEFAULT_PROMPT = "Officier de Conformité:\n" +
-            "Vérifications réglementaires (KYC/AML) pour le dossier {siren}.\n" +
-            "CONSIGNE STRICTE: Votre réponse DOIT commencer par '- Décision: [FAVORABLE / DEFAVORABLE]' suivi de 2 puces synthétiques de justification.";
+            "Vérifications réglementaires (KYC/AML) pour le dossier {siren}.\n\n" +
+            "CONSIGNE STRICTE DE FORMAT OBLIGATOIRE:\n" +
+            "DECISION: FAVORABLE / INFAVORABLE / INDETERMINEE\n\n" +
+            "RAISONNEMENT:\n" +
+            "- Analyse de la conformité réglementaire (KYC, AML) et des statut légaux.\n" +
+            "- Explication synthétique et justification de la décision de conformité.";
 
     public ConformiteAgent(OllamaClient ollamaClient, AiModelRepository aiModelRepository,
                            AiPromptRepository aiPromptRepository) {
@@ -51,7 +55,7 @@ public class ConformiteAgent {
         String prompt = dossierContext + "\n" + promptTemplate
                 .replace("{siren}", dossier.getSiren() != null ? dossier.getSiren() : "N/A");
 
-        prompt += "\n\nCONSIGNE STRICTE (Priorité absolue) : Votre réponse DOIT être brève (3 à 4 puces maximum) et inclure '- Décision: [FAVORABLE / DEFAVORABLE]'.";
+        prompt += "\n\nCONSIGNE STRICTE (Priorité absolue) : Votre réponse DOIT obligatoirement commencer par 'DECISION: [FAVORABLE / INFAVORABLE / INDETERMINEE]', suivi de 'RAISONNEMENT:' contenant l'analyse des données pertinentes et l'explication du raisonnement.";
 
         return execute(prompt, modelName, numCtx, keepAlive, temperature);
     }

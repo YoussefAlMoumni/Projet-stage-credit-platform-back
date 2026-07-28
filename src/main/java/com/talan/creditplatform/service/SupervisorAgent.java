@@ -22,17 +22,18 @@ public class SupervisorAgent {
     private static final String FALLBACK_MODEL = "deepseek-r1:14b";
 
     private static final String DEFAULT_PROMPT = "Directeur d'Engagement (Superviseur):\n" +
-            "Consolider les rapports des 4 spécialistes pour formuler la décision d'octroi finale.\n" +
+            "Consolider les décisions et raisonnements des 4 spécialistes (Solvabilité, Historique, Garanties, Conformité) pour formuler la décision d'octroi finale.\n" +
             "Dossier SIREN: {siren}\n" +
             "Montant demandé: {montantDemande}\n\n" +
-            "CONSIGNE STRICTE: Réponse structurée, claire et synthétique en Markdown:\n" +
-            "### Décision: [FAVORABLE / DEFAVORABLE / AVEC RESERVE]\n" +
+            "Avis des Spécialistes:\n" +
             "- **Solvabilité**: {solvabilite}\n" +
             "- **Historique**: {historique}\n" +
             "- **Garanties**: {garanties}\n" +
             "- **Conformité**: {conformite}\n\n" +
-            "### Synthèse Executive\n" +
-            "[Maximum 3 phrases synthétiques résumant le motif de la décision].";
+            "CONSIGNE STRICTE: Réponse structurée, claire et synthétique en Markdown:\n" +
+            "### Décision: [FAVORABLE / DEFAVORABLE / AVEC RESERVE]\n\n" +
+            "### Synthèse Executive & Raisonnement Consolidated\n" +
+            "[Maximum 3 phrases synthétiques résumant le motif de la décision d'engagement].";
 
     public SupervisorAgent(OllamaClient ollamaClient, AiModelRepository aiModelRepository,
                            AiPromptRepository aiPromptRepository) {

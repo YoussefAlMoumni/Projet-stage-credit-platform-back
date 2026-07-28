@@ -19,12 +19,12 @@ public class SolvabiliteAgent {
     private static final String FALLBACK_MODEL = "deepseek-r1:8b";
 
     private static final String DEFAULT_PROMPT = "Analyste Solvabilité:\n" +
-            "Évaluer la capacité de remboursement pour le dossier {siren} (client: {clientType}).\n" +
-            "CONSIGNE STRICTE: Réponse brève et synthétique (3-4 puces maximum):\n" +
-            "- Décision: [FAVORABLE / DEFAVORABLE]\n" +
-            "- Ratio d'endettement estimé\n" +
-            "- Capacité de remboursement (Élevée / Moyenne / Faible)\n" +
-            "- Recommandation clé en une phrase.";
+            "Évaluer la capacité de remboursement pour le dossier {siren} (client: {clientType}).\n\n" +
+            "CONSIGNE STRICTE DE FORMAT OBLIGATOIRE:\n" +
+            "DECISION: FAVORABLE / INFAVORABLE / INDETERMINEE\n\n" +
+            "RAISONNEMENT:\n" +
+            "- Analyse de la capacité de remboursement et du ratio d'endettement estimé.\n" +
+            "- Explication synthétique et justification de la décision.";
 
     public SolvabiliteAgent(OllamaClient ollamaClient, AiModelRepository aiModelRepository,
                             AiPromptRepository aiPromptRepository) {
@@ -57,7 +57,7 @@ public class SolvabiliteAgent {
                 .replace("{siren}", dossier.getSiren() != null ? dossier.getSiren() : "N/A")
                 .replace("{clientType}", dossier.getClientType() != null ? dossier.getClientType() : "N/A");
 
-        prompt += "\n\nCONSIGNE STRICTE (Priorité absolue) : Votre réponse DOIT être brève (3 à 4 puces maximum) et inclure '- Décision: [FAVORABLE / DEFAVORABLE]'.";
+        prompt += "\n\nCONSIGNE STRICTE (Priorité absolue) : Votre réponse DOIT obligatoirement commencer par 'DECISION: [FAVORABLE / INFAVORABLE / INDETERMINEE]', suivi de 'RAISONNEMENT:' contenant l'analyse des données pertinentes et l'explication du raisonnement.";
 
         return execute(prompt, modelName, numCtx, keepAlive, temperature);
     }

@@ -19,12 +19,12 @@ public class HistoriqueAgent {
 
     private static final String DEFAULT_PROMPT = "Analyste Historique:\n" +
             "Vérifier les incidents de paiement et antécédents bancaires pour le dossier {siren}.\n" +
-            "Nombre d'incidents: {incidentCount}\n" +
-            "CONSIGNE STRICTE: Réponse brève et synthétique (3-4 puces maximum):\n" +
-            "- Décision: [FAVORABLE / DEFAVORABLE]\n" +
-            "- Incidents récents (Aucun / Faible / Élevé)\n" +
-            "- Score de risque historique (/100)\n" +
-            "- Synthèse des antécédents en une phrase.";
+            "Nombre d'incidents: {incidentCount}\n\n" +
+            "CONSIGNE STRICTE DE FORMAT OBLIGATOIRE:\n" +
+            "DECISION: FAVORABLE / INFAVORABLE / INDETERMINEE\n\n" +
+            "RAISONNEMENT:\n" +
+            "- Analyse des antécédents bancaires et des incidents récents.\n" +
+            "- Explication synthétique et justification du niveau de risque historique.";
 
     public HistoriqueAgent(OllamaClient ollamaClient, AiModelRepository aiModelRepository,
                            AiPromptRepository aiPromptRepository) {
@@ -57,7 +57,7 @@ public class HistoriqueAgent {
                 .replace("{siren}", dossier.getSiren() != null ? dossier.getSiren() : "N/A")
                 .replace("{incidentCount}", String.valueOf(dossier.getCreditHistories().size()));
 
-        prompt += "\n\nCONSIGNE STRICTE (Priorité absolue) : Votre réponse DOIT être brève (3 à 4 puces maximum) et inclure '- Décision: [FAVORABLE / DEFAVORABLE]'.";
+        prompt += "\n\nCONSIGNE STRICTE (Priorité absolue) : Votre réponse DOIT obligatoirement commencer par 'DECISION: [FAVORABLE / INFAVORABLE / INDETERMINEE]', suivi de 'RAISONNEMENT:' contenant l'analyse des données pertinentes et l'explication du raisonnement.";
 
         return execute(prompt, modelName, numCtx, keepAlive, temperature);
     }

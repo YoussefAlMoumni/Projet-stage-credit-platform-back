@@ -42,6 +42,21 @@ public class StageResult {
             if (trimmed.isEmpty()) {
                 continue;
             }
+            if (trimmed.toUpperCase().startsWith("DECISION:")) {
+                return trimmed;
+            }
+        }
+
+        for (String line : lines) {
+            String trimmed = line.trim();
+            if (trimmed.isEmpty()) {
+                continue;
+            }
+            trimmed = trimmed.replaceFirst("^#+\\s*", "");
+            trimmed = trimmed.replaceFirst("^[•\\-\\*]+\\s*", "");
+            if (trimmed.isEmpty()) {
+                continue;
+            }
             if (trimmed.length() > 140) {
                 return trimmed.substring(0, 140).trim() + "...";
             }

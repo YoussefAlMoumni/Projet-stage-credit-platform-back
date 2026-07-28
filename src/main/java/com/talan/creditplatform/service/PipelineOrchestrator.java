@@ -39,23 +39,22 @@ public class PipelineOrchestrator {
 
     @Transactional
     public Evaluation evaluate(Dossier dossier, String mode) {
-        // num_ctx must fit: prompt + full <think> reasoning + full answer.
-        // deepseek-r1 variants typically need 8k–16k tokens even for short inputs.
-        int workerCtx = "FULL".equalsIgnoreCase(mode) ? 16384 : 8192;
-        String workerKeepAlive = "FULL".equalsIgnoreCase(mode) ? "300s" : "0s";
-        int supervisorCtx = "FULL".equalsIgnoreCase(mode) ? 32768 : 16384;
-        String supervisorKeepAlive = "FULL".equalsIgnoreCase(mode) ? "300s" : "0s";
+        String effectiveMode = "FAST";
+        int workerCtx = 8192;
+        String workerKeepAlive = "0s";
+        int supervisorCtx = 16384;
+        String supervisorKeepAlive = "0s";
 
         Evaluation eval = new Evaluation();
         eval.setDossier(dossier);
-        eval.setMode(mode);
+        eval.setMode(effectiveMode);
         eval.setAiModel(aiModelRepository.findFirstByStageNameAndActiveTrue("supervisor")
                 .orElseGet(() -> aiModelRepository.save(
                         new com.talan.creditplatform.model.entity.AiModel("supervisor", "deepseek-r1:14b", supervisorCtx, 0.4, supervisorKeepAlive, true)
                 )));
         eval = evaluationRepository.save(eval);
 
-        logger.info("Starting pipeline for dossier {} with mode {}", dossier.getId(), mode);
+        logger.info("Starting pipeline for dossier {} with mode {}", dossier.getId(), effectiveMode);
 
         logger.debug("Launching parallel agent tasks for dossier {}", dossier.getId());
 
@@ -177,22 +176,22 @@ public class PipelineOrchestrator {
 
     @Transactional
     public Evaluation evaluateWithProgress(Dossier dossier, String mode, java.util.function.Consumer<com.talan.creditplatform.model.dto.PipelineStageEvent> listener) {
-        // num_ctx must fit: prompt + full <think> reasoning + full answer.
-        int workerCtx = "FULL".equalsIgnoreCase(mode) ? 16384 : 8192;
-        String workerKeepAlive = "FULL".equalsIgnoreCase(mode) ? "300s" : "0s";
-        int supervisorCtx = "FULL".equalsIgnoreCase(mode) ? 32768 : 16384;
-        String supervisorKeepAlive = "FULL".equalsIgnoreCase(mode) ? "300s" : "0s";
+        String effectiveMode = "FAST";
+        int workerCtx = 8192;
+        String workerKeepAlive = "0s";
+        int supervisorCtx = 16384;
+        String supervisorKeepAlive = "0s";
 
         Evaluation eval = new Evaluation();
         eval.setDossier(dossier);
-        eval.setMode(mode);
+        eval.setMode(effectiveMode);
         eval.setAiModel(aiModelRepository.findFirstByStageNameAndActiveTrue("supervisor")
                 .orElseGet(() -> aiModelRepository.save(
                         new com.talan.creditplatform.model.entity.AiModel("supervisor", "deepseek-r1:14b", supervisorCtx, 0.4, supervisorKeepAlive, true)
                 )));
         eval = evaluationRepository.save(eval);
 
-        logger.info("Starting pipeline for dossier {} with mode {}", dossier.getId(), mode);
+        logger.info("Starting pipeline for dossier {} with mode {}", dossier.getId(), effectiveMode);
 
         // Run specialist stages in parallel and stream progress via listener
         class StageOutcome {
