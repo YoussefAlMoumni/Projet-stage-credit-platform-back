@@ -23,6 +23,10 @@ public class UserService {
         this.userRepository = userRepository;
     }
 
+    public Optional<User> findByEmail(String email) {
+        return userRepository.findByEmail(email);
+    }
+
     public void ensureNotSoleAdmin(User target) {
         if (!isAdmin(target)) {
             return;

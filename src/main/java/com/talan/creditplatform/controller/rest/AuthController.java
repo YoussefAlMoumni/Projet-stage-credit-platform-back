@@ -113,7 +113,7 @@ public class AuthController {
         rateLimiterService.recordAttempt(ip);
         rateLimiterService.recordAttempt(email);
 
-        Optional<User> userOpt = userRepository.findByEmail(email.trim());
+        Optional<User> userOpt = userService.findByEmail(email.trim());
         // S-04: Always return 200 regardless of whether the email exists to prevent user enumeration.
         if (userOpt.isEmpty()) {
             return ResponseEntity.ok(Map.of("message", "If this email is registered, you will receive an OTP."));
