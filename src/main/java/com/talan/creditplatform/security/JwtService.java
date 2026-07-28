@@ -21,7 +21,7 @@ public class JwtService {
 
     private String secretKey;
 
-    @Value("${jwt.secret:Y3JlZGl0LXBsYXRmb3JtLWRlZmF1bHQtand0LXNlY3JldC0zMmIh}")
+    @Value("${jwt.secret}")
     private String configuredSecretKey;
 
     @Value("${jwt.expiration:86400000}")
@@ -29,6 +29,18 @@ public class JwtService {
 
     @PostConstruct
     public void init() {
+        if (configuredSecretKey == null || configuredSecretKey.isBlank()) {
+            throw new IllegalStateException(
+                "JWT_SECRET environment variable is not set. " +
+                "Please configure 'jwt.secret' via the JWT_SECRET environment variable before starting the application.");
+        }
+        // Base64-decoded key must be at least 256 bits (32 bytes) for HS256.
+        byte[] keyBytes = io.jsonwebtoken.io.Decoders.BASE64.decode(configuredSecretKey);
+        if (keyBytes.length < 32) {
+            throw new IllegalStateException(
+                "JWT secret is too short (decoded length: " + keyBytes.length + " bytes). " +
+                "Minimum required is 32 bytes (256 bits) for HS256.");
+        }
         this.secretKey = configuredSecretKey;
     }
 

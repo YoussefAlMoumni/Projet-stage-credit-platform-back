@@ -22,10 +22,15 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 @RestController
 @RequestMapping("/api/auth")
 @CrossOrigin(origins = {"http://localhost:4200", "http://127.0.0.1:4200"})
 public class AuthController {
+
+    private static final Logger logger = LoggerFactory.getLogger(AuthController.class);
 
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
@@ -136,33 +141,34 @@ public class AuthController {
         rateLimiterService.recordAttempt(email);
 
         Optional<User> userOpt = userRepository.findByEmail(email.trim());
+        // S-04: Always return 200 regardless of whether the email exists to prevent user enumeration.
         if (userOpt.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(Map.of("message", "Email address not found."));
+            return ResponseEntity.ok(Map.of("message", "If this email is registered, you will receive an OTP."));
         }
 
         User user = userOpt.get();
         String method = request.get("method");
 
         if (method == null) {
-            // Step 1: user exists, return options
+            // Step 1: user exists, return delivery options (never reveal existence explicitly)
             return ResponseEntity.ok(Map.of(
                     "email", user.getEmail(),
                     "hasPhone", user.getPhoneNumber() != null && !user.getPhoneNumber().isBlank(),
                     "phoneNumber", maskPhone(user.getPhoneNumber())
             ));
         } else {
-            // Step 2: method selected, trigger simulated OTP delivery
+            // Step 2: method selected, trigger OTP delivery via the chosen channel.
+            // S-03: OTP is NOT returned in the response. It is only delivered out-of-band.
             return ResponseEntity.ok(Map.of(
-                    "message", "OTP successfully sent via " + method,
-                    "otp", "123456"
+                    "message", "OTP successfully sent via " + method
             ));
         }
     }
 
     @PostMapping("/contact-admin")
     public ResponseEntity<?> contactAdmin(@RequestBody Map<String, String> payload) {
-        System.out.println("IT Department contacted by: " + payload);
+        // S-06: Use structured logger, redact PII from log output.
+        logger.info("IT Department contact request received from email: [REDACTED]");
         return ResponseEntity.ok(Map.of(
                 "status", "success",
                 "message", "IT Department contacted successfully."

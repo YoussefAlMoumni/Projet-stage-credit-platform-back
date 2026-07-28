@@ -13,19 +13,35 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.LocalDateTime;
 
+import org.springframework.beans.factory.annotation.Value;
+
 @Configuration
 public class DatabaseInitializer {
+
+    // S-05: Default seed credentials are loaded from environment variables.
+    // Override these in production by setting the corresponding env vars.
+    @Value("${seed.admin.password:CHANGE_ME_admin_password}")
+    private String adminPassword;
+
+    @Value("${seed.manager.password:CHANGE_ME_manager_password}")
+    private String managerPassword;
+
+    @Value("${seed.banker.password:CHANGE_ME_banker_password}")
+    private String bankerPassword;
+
+    @Value("${seed.analyst.password:CHANGE_ME_analyst_password}")
+    private String analystPassword;
 
     @Bean
     public CommandLineRunner initDatabase(UserRepository userRepository, PasswordEncoder passwordEncoder,
                                           AiModelRepository aiModelRepository, AiPromptRepository aiPromptRepository) {
         return args -> {
-            // Upsert each default user so they always exist with the correct password,
-            // even if the sample_data.sql was run and wiped the users table.
-            upsertUser(userRepository, passwordEncoder, "admin",   "AdminPass2024!",  "admin");
-            upsertUser(userRepository, passwordEncoder, "manager", "ManagerPass2025!", "manager");
-            upsertUser(userRepository, passwordEncoder, "banker",  "BankerPass2025!",  "manager");
-            upsertUser(userRepository, passwordEncoder, "analyst", "AnalystPass2025!", "analyst");
+            // S-05: Only seed if the user does NOT already exist.
+            // This ensures that restarting the app never overwrites existing passwords.
+            seedUserIfAbsent(userRepository, passwordEncoder, "admin",   adminPassword,   "admin");
+            seedUserIfAbsent(userRepository, passwordEncoder, "manager", managerPassword, "manager");
+            seedUserIfAbsent(userRepository, passwordEncoder, "banker",  bankerPassword,  "manager");
+            seedUserIfAbsent(userRepository, passwordEncoder, "analyst", analystPassword, "analyst");
 
             // Seed default AI models and prompts if tables are empty
             if (aiModelRepository.count() == 0) {
@@ -34,17 +50,11 @@ public class DatabaseInitializer {
         };
     }
 
-    private void upsertUser(UserRepository repo, PasswordEncoder encoder,
-                            String username, String rawPassword, String role) {
-        repo.findByUsername(username).ifPresentOrElse(
-            existing -> {
-                // Re-encode and update password in case it was corrupted by manual SQL
-                existing.setPassword(encoder.encode(rawPassword));
-                existing.setRole(role);
-                repo.save(existing);
-            },
-            () -> repo.save(new User(username, encoder.encode(rawPassword), role))
-        );
+    private void seedUserIfAbsent(UserRepository repo, PasswordEncoder encoder,
+                                  String username, String rawPassword, String role) {
+        if (repo.findByUsername(username).isEmpty()) {
+            repo.save(new User(username, encoder.encode(rawPassword), role));
+        }
     }
 
     private void seedAiModelsAndPrompts(AiModelRepository modelRepo, AiPromptRepository promptRepo) {

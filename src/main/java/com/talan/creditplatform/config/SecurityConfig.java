@@ -41,7 +41,9 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(org.springframework.http.HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers("/error").permitAll()
-                .requestMatchers("/api/auth/**").permitAll()
+                // S-07: /register is restricted to admins. Login and password-reset flows remain public.
+                .requestMatchers("/api/auth/login", "/api/auth/forgot-password", "/api/auth/contact-admin").permitAll()
+                .requestMatchers("/api/auth/register").hasAuthority("ROLE_ADMIN")
                 .requestMatchers("/api/users/**").hasAuthority("ROLE_ADMIN")
                 .requestMatchers("/api/prompts/**").hasAuthority("ROLE_ADMIN")
                 .requestMatchers("/api/dossiers/**").hasAnyAuthority("ROLE_ANALYST", "ROLE_MANAGER", "ROLE_ADMIN")
