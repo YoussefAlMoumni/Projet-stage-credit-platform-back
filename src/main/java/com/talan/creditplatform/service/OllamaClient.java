@@ -42,11 +42,18 @@ public class OllamaClient {
     @CircuitBreaker(name = "ollamaApi")
     public String generate(OllamaRequest request) {
         logger.debug("Sending Ollama request: model={}, prompt={}...", request.getModel(), trimPrompt(request.getPrompt(), 300));
-        OllamaResponse response = restClient.post()
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(request)
-                .retrieve()
-                .body(OllamaResponse.class);
+        OllamaResponse response;
+        try {
+            response = restClient.post()
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(request)
+                    .retrieve()
+                    .body(OllamaResponse.class);
+        } catch (org.springframework.web.client.ResourceAccessException e) {
+            logger.warn("Ollama connection failed. Attempting to start local Ollama process...");
+            startOllamaProcess();
+            throw e; // Let @Retry try again after Ollama has started
+        }
 
         logger.debug("Received Ollama payload: {}", response);
         if (response != null) {
@@ -171,5 +178,31 @@ public class OllamaClient {
         // Strip <think> reasoning blocks produced by models like deepseek-r1
         String cleaned = text.replaceAll("(?s)<think>.*?</think>", "").trim();
         return cleaned.isEmpty() ? text.trim() : cleaned;
+    }
+
+    private static volatile long lastOllamaStartAttempt = 0;
+
+    private synchronized void startOllamaProcess() {
+        // Prevent launching a dozen instances if parallel agents all fail at once.
+        // Wait at least 15 seconds before trying to start the process again.
+        if (System.currentTimeMillis() - lastOllamaStartAttempt < 15000) {
+            return;
+        }
+        lastOllamaStartAttempt = System.currentTimeMillis();
+
+        try {
+            logger.info("Attempting to start Ollama automatically via 'ollama serve'...");
+            
+            // On Windows, running `ollama serve` in a background process
+            ProcessBuilder pb = new ProcessBuilder("cmd.exe", "/c", "start", "/b", "ollama", "serve");
+            pb.redirectErrorStream(true);
+            pb.start();
+            
+            // Give Ollama a few seconds to initialize its HTTP server before the next retry
+            Thread.sleep(4000);
+            logger.info("Ollama start command issued. Retrying connection...");
+        } catch (Exception ex) {
+            logger.error("Failed to start Ollama process automatically", ex);
+        }
     }
 }

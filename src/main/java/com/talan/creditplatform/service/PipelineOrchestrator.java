@@ -6,7 +6,8 @@ import com.talan.creditplatform.repository.AiModelRepository;
 import com.talan.creditplatform.repository.EvaluationRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import java.util.concurrent.CompletableFuture;
+
+import java.util.concurrent.*;
 import java.util.function.Supplier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,13 +17,19 @@ public class PipelineOrchestrator {
 
     private static final Logger logger = LoggerFactory.getLogger(PipelineOrchestrator.class);
 
-    private final java.util.concurrent.ConcurrentHashMap<Long, java.util.List<CompletableFuture<?>>> activeTasks = new java.util.concurrent.ConcurrentHashMap<>();
+    // We use a VirtualThreadPerTaskExecutor to scale efficiently without blocking platform threads.
+    // Future<?> objects returned by executor.submit() support true Thread.interrupt() via cancel(true).
+    private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
+    
+    // Tracks active futures for each dossier so they can be cancelled.
+    private final ConcurrentHashMap<Long, java.util.List<Future<?>>> activeTasks = new ConcurrentHashMap<>();
 
     public void cancelEvaluation(Long dossierId) {
-        java.util.List<CompletableFuture<?>> futures = activeTasks.remove(dossierId);
+        java.util.List<Future<?>> futures = activeTasks.remove(dossierId);
         if (futures != null) {
             logger.info("Cancelling pipeline for dossier {}", dossierId);
-            for (CompletableFuture<?> f : futures) {
+            for (Future<?> f : futures) {
+                // cancel(true) interrupts the underlying virtual thread executing the task.
                 f.cancel(true);
             }
         }
@@ -64,11 +71,9 @@ public class PipelineOrchestrator {
                 .orElseGet(() -> aiModelRepository.save(
                         new com.talan.creditplatform.model.entity.AiModel("supervisor", "deepseek-r1:14b", supervisorCtx, 0.4, supervisorKeepAlive, true)
                 )));
-        eval = evaluationRepository.save(eval);
+        evaluationRepository.save(eval);
 
         logger.info("Starting pipeline for dossier {} with mode {}", dossier.getId(), effectiveMode);
-
-        logger.debug("Launching parallel agent tasks for dossier {}", dossier.getId());
 
         // helper to run a stage and return outcome
         class StageOutcome {
@@ -84,106 +89,95 @@ public class PipelineOrchestrator {
         }
 
         // Build dossier context BEFORE spawning async threads.
-        // The Hibernate session is bound to this (transactional) thread; lazy
-        // collections would throw JdbcValuesSourceProcessingState if accessed
-        // from a CompletableFuture worker thread.
         String dossierContext = DossierContextBuilder.build(dossier);
 
-        Supplier<StageOutcome> solvSupplier = () -> {
+        Callable<StageOutcome> solvCallable = () -> {
             long s = System.currentTimeMillis();
             String r = solvabiliteAgent.run(dossier, dossierContext, workerCtx, workerKeepAlive);
-            long d = System.currentTimeMillis() - s;
-            return new StageOutcome("solvency", r, d);
+            return new StageOutcome("solvency", r, System.currentTimeMillis() - s);
         };
 
-        Supplier<StageOutcome> histSupplier = () -> {
+        Callable<StageOutcome> histCallable = () -> {
             long s = System.currentTimeMillis();
             String r = historiqueAgent.run(dossier, dossierContext, workerCtx, workerKeepAlive);
-            long d = System.currentTimeMillis() - s;
-            return new StageOutcome("history", r, d);
+            return new StageOutcome("history", r, System.currentTimeMillis() - s);
         };
 
-        Supplier<StageOutcome> guarSupplier = () -> {
+        Callable<StageOutcome> guarCallable = () -> {
             long s = System.currentTimeMillis();
             String r = garantiesAgent.run(dossier, dossierContext, workerCtx, workerKeepAlive);
-            long d = System.currentTimeMillis() - s;
-            return new StageOutcome("guarantees", r, d);
+            return new StageOutcome("guarantees", r, System.currentTimeMillis() - s);
         };
 
-        Supplier<StageOutcome> confSupplier = () -> {
+        Callable<StageOutcome> confCallable = () -> {
             long s = System.currentTimeMillis();
             String r = conformiteAgent.run(dossier, dossierContext, workerCtx, workerKeepAlive);
-            long d = System.currentTimeMillis() - s;
-            return new StageOutcome("compliance", r, d);
+            return new StageOutcome("compliance", r, System.currentTimeMillis() - s);
         };
 
-        CompletableFuture<StageOutcome> f1 = CompletableFuture.supplyAsync(solvSupplier);
-        CompletableFuture<StageOutcome> f2 = CompletableFuture.supplyAsync(histSupplier);
-        CompletableFuture<StageOutcome> f3 = CompletableFuture.supplyAsync(guarSupplier);
-        CompletableFuture<StageOutcome> f4 = CompletableFuture.supplyAsync(confSupplier);
+        Future<StageOutcome> f1 = executor.submit(solvCallable);
+        Future<StageOutcome> f2 = executor.submit(histCallable);
+        Future<StageOutcome> f3 = executor.submit(guarCallable);
+        Future<StageOutcome> f4 = executor.submit(confCallable);
 
+        // Track the parallel stages for cancellation
+        activeTasks.put(dossier.getId(), java.util.Collections.synchronizedList(new java.util.ArrayList<>(java.util.Arrays.asList(f1, f2, f3, f4))));
 
-        CompletableFuture<Void> all = CompletableFuture.allOf(f1, f2, f3, f4);
         try {
-            all.join();
-        } catch (Exception e) {
-            logger.error("Error while running parallel stages", e);
-        }
-
-        // Collect stage outputs individually. Each stage is wrapped in its own
-        // try-catch so a single failure doesn't prevent the others from being
-        // persisted. Non-null fallback strings ensure SupervisorAgent.replace()
-        // never receives a null replacement argument.
-        try {
+            // Await each stage, but fail fast if the thread was interrupted or cancelled
             StageOutcome so1 = f1.get();
             eval.setSolvencyStageOutput(so1.output);
             eval.setSolvencyDurationMs(toIntDuration(so1.durationMs));
-        } catch (Exception e) {
-            logger.error("Stage 'solvency' failed to collect: {}", e.getMessage(), e);
-            eval.setSolvencyStageOutput("[STAGE FAILED: solvency — " + sanitize(e) + "]");
-        }
-        try {
+
             StageOutcome so2 = f2.get();
             eval.setHistoryStageOutput(so2.output);
             eval.setHistoryDurationMs(toIntDuration(so2.durationMs));
-        } catch (Exception e) {
-            logger.error("Stage 'history' failed to collect: {}", e.getMessage(), e);
-            eval.setHistoryStageOutput("[STAGE FAILED: history — " + sanitize(e) + "]");
-        }
-        try {
+
             StageOutcome so3 = f3.get();
             eval.setGuaranteesStageOutput(so3.output);
             eval.setGuaranteesDurationMs(toIntDuration(so3.durationMs));
-        } catch (Exception e) {
-            logger.error("Stage 'guarantees' failed to collect: {}", e.getMessage(), e);
-            eval.setGuaranteesStageOutput("[STAGE FAILED: guarantees — " + sanitize(e) + "]");
-        }
-        try {
+
             StageOutcome so4 = f4.get();
             eval.setComplianceStageOutput(so4.output);
             eval.setComplianceDurationMs(toIntDuration(so4.durationMs));
-        } catch (Exception e) {
-            logger.error("Stage 'compliance' failed to collect: {}", e.getMessage(), e);
-            eval.setComplianceStageOutput("[STAGE FAILED: compliance — " + sanitize(e) + "]");
-        }
-        try {
+
             evaluationRepository.save(eval);
-        } catch (Exception e) {
-            logger.error("Failed to persist stage outcomes", e);
+
+            logger.info("Starting supervisor stage for dossier {}", dossier.getId());
+            
+            Callable<String> supervisorCallable = () -> {
+                long start = System.currentTimeMillis();
+                String report = supervisorAgent.runSuperviseur(dossier, dossierContext, 
+                        eval.getSolvencyStageOutput(), eval.getHistoryStageOutput(), 
+                        eval.getGuaranteesStageOutput(), eval.getComplianceStageOutput(), 
+                        supervisorCtx, supervisorKeepAlive);
+                eval.setSupervisorDurationMs(toIntDuration(System.currentTimeMillis() - start));
+                return report;
+            };
+
+            // Track the supervisor stage for cancellation as well
+            Future<String> fSuper = executor.submit(supervisorCallable);
+            java.util.List<Future<?>> tasks = activeTasks.get(dossier.getId());
+            if (tasks != null) {
+                tasks.add(fSuper);
+            }
+
+            String finalReport = fSuper.get();
+            eval.setFinalReport(finalReport);
+            evaluationRepository.save(eval);
+
+            logger.info("Pipeline completed for dossier {}", dossier.getId());
+            return eval;
+
+        } catch (InterruptedException | CancellationException e) {
+            logger.warn("Pipeline cancelled for dossier {}", dossier.getId());
+            throw new RuntimeException("Pipeline Cancelled", e);
+        } catch (ExecutionException e) {
+            logger.error("Error while running pipeline stages", e);
+            throw new RuntimeException("Pipeline Failed", e.getCause());
+        } finally {
+            activeTasks.remove(dossier.getId());
         }
-
-        logger.info("Starting supervisor stage for dossier {}", dossier.getId());
-        long start = System.currentTimeMillis();
-        String finalReport = supervisorAgent.runSuperviseur(dossier, dossierContext, eval.getSolvencyStageOutput(), eval.getHistoryStageOutput(), eval.getGuaranteesStageOutput(), eval.getComplianceStageOutput(), supervisorCtx, supervisorKeepAlive);
-        long duration = System.currentTimeMillis() - start;
-
-
-        eval.setFinalReport(finalReport);
-        eval.setSupervisorDurationMs(toIntDuration(duration));
-        evaluationRepository.save(eval);
-        
-        logger.info("Pipeline completed for dossier {} in {} ms", dossier.getId(), duration);
-        return eval;
     }
 
     @Transactional
@@ -201,11 +195,10 @@ public class PipelineOrchestrator {
                 .orElseGet(() -> aiModelRepository.save(
                         new com.talan.creditplatform.model.entity.AiModel("supervisor", "deepseek-r1:14b", supervisorCtx, 0.4, supervisorKeepAlive, true)
                 )));
-        eval = evaluationRepository.save(eval);
+        evaluationRepository.save(eval);
 
         logger.info("Starting pipeline for dossier {} with mode {}", dossier.getId(), effectiveMode);
 
-        // Run specialist stages in parallel and stream progress via listener
         class StageOutcome {
             final String stageName;
             final String output;
@@ -219,12 +212,9 @@ public class PipelineOrchestrator {
         }
 
         // Build dossier context BEFORE spawning async threads.
-        // The Hibernate session is bound to this (transactional) thread; lazy
-        // collections would throw JdbcValuesSourceProcessingState if accessed
-        // from a CompletableFuture worker thread.
         String dossierContext = DossierContextBuilder.build(dossier);
 
-        Supplier<StageOutcome> solvSupplier = () -> {
+        Callable<StageOutcome> solvCallable = () -> {
             if (listener != null) listener.accept(new com.talan.creditplatform.model.dto.PipelineStageEvent("solvency","STARTED",15,null,null));
             long s = System.currentTimeMillis();
             String r = solvabiliteAgent.run(dossier, dossierContext, workerCtx, workerKeepAlive);
@@ -234,7 +224,7 @@ public class PipelineOrchestrator {
             return new StageOutcome("solvency", r, d);
         };
 
-        Supplier<StageOutcome> histSupplier = () -> {
+        Callable<StageOutcome> histCallable = () -> {
             if (listener != null) listener.accept(new com.talan.creditplatform.model.dto.PipelineStageEvent("history","STARTED",35,null,null));
             long s = System.currentTimeMillis();
             String r = historiqueAgent.run(dossier, dossierContext, workerCtx, workerKeepAlive);
@@ -244,7 +234,7 @@ public class PipelineOrchestrator {
             return new StageOutcome("history", r, d);
         };
 
-        Supplier<StageOutcome> guarSupplier = () -> {
+        Callable<StageOutcome> guarCallable = () -> {
             if (listener != null) listener.accept(new com.talan.creditplatform.model.dto.PipelineStageEvent("guarantees","STARTED",55,null,null));
             long s = System.currentTimeMillis();
             String r = garantiesAgent.run(dossier, dossierContext, workerCtx, workerKeepAlive);
@@ -254,7 +244,7 @@ public class PipelineOrchestrator {
             return new StageOutcome("guarantees", r, d);
         };
 
-        Supplier<StageOutcome> confSupplier = () -> {
+        Callable<StageOutcome> confCallable = () -> {
             if (listener != null) listener.accept(new com.talan.creditplatform.model.dto.PipelineStageEvent("compliance","STARTED",75,null,null));
             long s = System.currentTimeMillis();
             String r = conformiteAgent.run(dossier, dossierContext, workerCtx, workerKeepAlive);
@@ -264,125 +254,78 @@ public class PipelineOrchestrator {
             return new StageOutcome("compliance", r, d);
         };
 
-        CompletableFuture<StageOutcome> f1 = CompletableFuture.supplyAsync(solvSupplier);
-        CompletableFuture<StageOutcome> f2 = CompletableFuture.supplyAsync(histSupplier);
-        CompletableFuture<StageOutcome> f3 = CompletableFuture.supplyAsync(guarSupplier);
-        CompletableFuture<StageOutcome> f4 = CompletableFuture.supplyAsync(confSupplier);
+        Future<StageOutcome> f1 = executor.submit(solvCallable);
+        Future<StageOutcome> f2 = executor.submit(histCallable);
+        Future<StageOutcome> f3 = executor.submit(guarCallable);
+        Future<StageOutcome> f4 = executor.submit(confCallable);
 
+        activeTasks.put(dossier.getId(), java.util.Collections.synchronizedList(new java.util.ArrayList<>(java.util.Arrays.asList(f1, f2, f3, f4))));
 
-        CompletableFuture<Void> all = CompletableFuture.allOf(f1, f2, f3, f4);
-        
-        activeTasks.put(dossier.getId(), java.util.Arrays.asList(f1, f2, f3, f4, all));
-        
         try {
-            all.join();
-        } catch (java.util.concurrent.CancellationException e) {
-            logger.warn("Pipeline stages cancelled for dossier {}", dossier.getId());
-            throw new RuntimeException("Pipeline Cancelled", e);
-        } catch (java.util.concurrent.CompletionException e) {
-            if (e.getCause() instanceof java.util.concurrent.CancellationException) {
-                logger.warn("Pipeline stages cancelled for dossier {}", dossier.getId());
-                throw new RuntimeException("Pipeline Cancelled", e.getCause());
-            }
-            logger.error("Error while running parallel stages (with progress)", e);
-        } catch (Exception e) {
-            logger.error("Error while running parallel stages (with progress)", e);
-        } finally {
-            activeTasks.remove(dossier.getId());
-        }
-
-        // Collect and persist outputs individually. Each stage is wrapped in its
-        // own try-catch so a single failure doesn't prevent the others from being
-        // persisted. Non-null fallback strings ensure SupervisorAgent.replace()
-        // never receives a null replacement argument.
-        try {
+            // Await each stage. If ANY stage is cancelled or throws an exception,
+            // we catch it below and ABORT the pipeline, skipping the supervisor stage.
             StageOutcome so1 = f1.get();
             eval.setSolvencyStageOutput(so1.output);
             eval.setSolvencyDurationMs(toIntDuration(so1.durationMs));
-        } catch (Exception e) {
-            logger.error("Stage 'solvency' failed to collect (with progress): {}", e.getMessage(), e);
-            eval.setSolvencyStageOutput("[STAGE FAILED: solvency — " + sanitize(e) + "]");
-        }
-        try {
+
             StageOutcome so2 = f2.get();
             eval.setHistoryStageOutput(so2.output);
             eval.setHistoryDurationMs(toIntDuration(so2.durationMs));
-        } catch (Exception e) {
-            logger.error("Stage 'history' failed to collect (with progress): {}", e.getMessage(), e);
-            eval.setHistoryStageOutput("[STAGE FAILED: history — " + sanitize(e) + "]");
-        }
-        try {
+
             StageOutcome so3 = f3.get();
             eval.setGuaranteesStageOutput(so3.output);
             eval.setGuaranteesDurationMs(toIntDuration(so3.durationMs));
-        } catch (Exception e) {
-            logger.error("Stage 'guarantees' failed to collect (with progress): {}", e.getMessage(), e);
-            eval.setGuaranteesStageOutput("[STAGE FAILED: guarantees — " + sanitize(e) + "]");
-        }
-        try {
+
             StageOutcome so4 = f4.get();
             eval.setComplianceStageOutput(so4.output);
             eval.setComplianceDurationMs(toIntDuration(so4.durationMs));
-        } catch (Exception e) {
-            logger.error("Stage 'compliance' failed to collect (with progress): {}", e.getMessage(), e);
-            eval.setComplianceStageOutput("[STAGE FAILED: compliance — " + sanitize(e) + "]");
-        }
-        try {
+
             evaluationRepository.save(eval);
-        } catch (Exception e) {
-            logger.error("Failed to persist stage outcomes (with progress)", e);
+
+            logger.info("Starting supervisor stage for dossier {}", dossier.getId());
+            
+            Callable<String> supervisorCallable = () -> {
+                long start = System.currentTimeMillis();
+                if (listener != null) listener.accept(new com.talan.creditplatform.model.dto.PipelineStageEvent("supervisor", "STARTED", 85, null, null));
+                
+                String report = supervisorAgent.runSuperviseur(dossier, dossierContext, 
+                        eval.getSolvencyStageOutput(), eval.getHistoryStageOutput(), 
+                        eval.getGuaranteesStageOutput(), eval.getComplianceStageOutput(), 
+                        supervisorCtx, supervisorKeepAlive);
+                        
+                long duration = System.currentTimeMillis() - start;
+                eval.setSupervisorDurationMs(toIntDuration(duration));
+                
+                String supervisorSummary = report != null ? com.talan.creditplatform.model.entity.StageResult.extractSummary(report) : "No response";
+                if (listener != null) listener.accept(new com.talan.creditplatform.model.dto.PipelineStageEvent("supervisor", "COMPLETED", 100, report, supervisorSummary, toIntDuration(duration)));
+                
+                return report;
+            };
+
+            // Track supervisor future so it can also be cancelled
+            Future<String> fSuper = executor.submit(supervisorCallable);
+            java.util.List<Future<?>> tasks = activeTasks.get(dossier.getId());
+            if (tasks != null) {
+                tasks.add(fSuper);
+            }
+
+            String finalReport = fSuper.get();
+            eval.setFinalReport(finalReport);
+            evaluationRepository.save(eval);
+
+            logger.info("Pipeline completed for dossier {}", dossier.getId());
+            return eval;
+
+        } catch (InterruptedException | CancellationException e) {
+            logger.warn("Pipeline cancelled for dossier {}", dossier.getId());
+            // Fast fail. This stops the orchestrator from progressing to the next stages.
+            throw new RuntimeException("Pipeline Cancelled", e);
+        } catch (ExecutionException e) {
+            logger.error("Error while running pipeline stages", e);
+            throw new RuntimeException("Pipeline Failed", e.getCause());
+        } finally {
+            activeTasks.remove(dossier.getId());
         }
-
-        logger.info("Starting supervisor stage for dossier {}", dossier.getId());
-        long start = System.currentTimeMillis();
-        if (listener != null) listener.accept(new com.talan.creditplatform.model.dto.PipelineStageEvent("supervisor", "STARTED", 85, null, null));
-        String finalReport = supervisorAgent.runSuperviseur(dossier, dossierContext, eval.getSolvencyStageOutput(), eval.getHistoryStageOutput(), eval.getGuaranteesStageOutput(), eval.getComplianceStageOutput(), supervisorCtx, supervisorKeepAlive);
-        long duration = System.currentTimeMillis() - start;
-
-
-        eval.setFinalReport(finalReport);
-        eval.setSupervisorDurationMs(toIntDuration(duration));
-        evaluationRepository.save(eval);
-        
-        String supervisorSummary = finalReport != null ? com.talan.creditplatform.model.entity.StageResult.extractSummary(finalReport) : "No response";
-        if (listener != null) listener.accept(new com.talan.creditplatform.model.dto.PipelineStageEvent("supervisor", "COMPLETED", 100, finalReport, supervisorSummary, toIntDuration(duration)));
-
-        logger.info("Pipeline completed for dossier {} in {} ms", dossier.getId(), duration);
-        return eval;
-    }
-
-    private String runStage(String stageName, Evaluation eval, int progressStarted, java.util.function.Consumer<com.talan.creditplatform.model.dto.PipelineStageEvent> listener, StageRunner runner) {
-        logger.info("Running stage: {}", stageName);
-        if (listener != null) listener.accept(new com.talan.creditplatform.model.dto.PipelineStageEvent(stageName, "STARTED", progressStarted, null, null));
-        long start = System.currentTimeMillis();
-        String result = runner.run();
-        long duration = System.currentTimeMillis() - start;
-
-        switch (stageName) {
-            case "solvency" -> {
-                eval.setSolvencyStageOutput(result);
-                eval.setSolvencyDurationMs(toIntDuration(duration));
-            }
-            case "history" -> {
-                eval.setHistoryStageOutput(result);
-                eval.setHistoryDurationMs(toIntDuration(duration));
-            }
-            case "guarantees" -> {
-                eval.setGuaranteesStageOutput(result);
-                eval.setGuaranteesDurationMs(toIntDuration(duration));
-            }
-            case "compliance" -> {
-                eval.setComplianceStageOutput(result);
-                eval.setComplianceDurationMs(toIntDuration(duration));
-            }
-            default -> throw new IllegalArgumentException("Unknown stage: " + stageName);
-        }
-        evaluationRepository.save(eval);
-
-        String stageSummary = com.talan.creditplatform.model.entity.StageResult.extractSummary(result);
-        if (listener != null) listener.accept(new com.talan.creditplatform.model.dto.PipelineStageEvent(stageName, "COMPLETED", progressStarted + 15, result, stageSummary, toIntDuration(duration)));
-
-        return result;
     }
 
     private Integer toIntDuration(long duration) {
@@ -395,7 +338,7 @@ public class PipelineOrchestrator {
      * actual cause.
      */
     private String sanitize(Exception e) {
-        Throwable cause = (e instanceof java.util.concurrent.ExecutionException && e.getCause() != null)
+        Throwable cause = (e instanceof ExecutionException && e.getCause() != null)
                 ? e.getCause() : e;
         String msg = cause.getMessage();
         if (msg == null || msg.isBlank()) {
@@ -403,10 +346,5 @@ public class PipelineOrchestrator {
         }
         // Truncate to avoid overly long strings in DB/logs.
         return msg.length() > 200 ? msg.substring(0, 200) + "..." : msg;
-    }
-
-    @FunctionalInterface
-    private interface StageRunner {
-        String run();
     }
 }
