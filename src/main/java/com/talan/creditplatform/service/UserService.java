@@ -1,6 +1,7 @@
 package com.talan.creditplatform.service;
 
 import com.talan.creditplatform.exception.ConflictException;
+import com.talan.creditplatform.model.dto.RegisterRequest;
 import com.talan.creditplatform.model.entity.User;
 import com.talan.creditplatform.repository.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -80,5 +81,39 @@ public class UserService {
 
     public static boolean isAdmin(User user) {
         return user != null && ADMIN_ROLE.equalsIgnoreCase(user.getRole());
+    }
+
+    /**
+     * Registers a new user from the given request.
+     * Validates username uniqueness and encodes the password.
+     *
+     * @param request         the registration DTO
+     * @param passwordEncoder encoder for hashing the raw password
+     * @return the persisted {@link User}
+     * @throws IllegalStateException if the username is already taken
+     */
+    @Transactional
+    public User register(RegisterRequest request, PasswordEncoder passwordEncoder) {
+        String username = request.getUsername().trim();
+        if (userRepository.findByUsername(username).isPresent()) {
+            throw new IllegalStateException("That username is already registered.");
+        }
+        User user = new User();
+        user.setUsername(username);
+        user.setPassword(passwordEncoder.encode(request.getPassword()));
+        user.setEmail(request.getEmail());
+        user.setPhoneNumber(request.getPhoneNumber());
+        user.setNationalId(request.getNationalId());
+        user.setFirstName(request.getFirstName());
+        user.setLastName(request.getLastName());
+        user.setGender(request.getGender());
+        user.setRole(normalizeRole(request.getRole()));
+        return userRepository.save(user);
+    }
+
+    private String normalizeRole(String requestedRole) {
+        if ("ROLE_ADMIN".equals(requestedRole))   return "admin";
+        if ("ROLE_ANALYST".equals(requestedRole)) return "analyst";
+        return "manager";
     }
 }

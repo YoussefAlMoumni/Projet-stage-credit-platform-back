@@ -126,6 +126,9 @@ public class DossierController {
         if (status == null || status.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("message", "Status is required"));
         }
+        if (!List.of("in_progress", "approved", "rejected").contains(status)) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Invalid status. Allowed values are: in_progress, approved, rejected."));
+        }
         Dossier dossier = dossierOpt.get();
         dossier.setStatus(status);
         dossierRepository.save(dossier);

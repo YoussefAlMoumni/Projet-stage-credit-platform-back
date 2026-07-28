@@ -93,14 +93,6 @@ public class Dossier {
         this.clientType = normalizeClientType(clientType);
     }
 
-    public String getTypeClient() {
-        return clientType;
-    }
-
-    public void setTypeClient(String typeClient) {
-        setClientType(typeClient);
-    }
-
     public String getStatus() {
         return status;
     }
@@ -221,14 +213,6 @@ public class Dossier {
         if (loans.isEmpty()) {
             loans.add(loan);
         }
-    }
-
-    public String getRawData() {
-        return null;
-    }
-
-    public void setRawData(String rawData) {
-        // The normalized schema stores dossier facts in typed tables.
     }
 
     private String normalizeClientType(String value) {

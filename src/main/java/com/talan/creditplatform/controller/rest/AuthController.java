@@ -4,10 +4,10 @@ import com.talan.creditplatform.model.dto.LoginRequest;
 import com.talan.creditplatform.model.dto.LoginResponse;
 import com.talan.creditplatform.model.dto.RegisterRequest;
 import com.talan.creditplatform.model.entity.User;
-import com.talan.creditplatform.repository.UserRepository;
 import com.talan.creditplatform.security.CustomUserDetails;
 import com.talan.creditplatform.security.JwtService;
 import com.talan.creditplatform.service.RateLimiterService;
+import com.talan.creditplatform.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.Map;
@@ -34,20 +34,20 @@ public class AuthController {
 
     private final AuthenticationManager authenticationManager;
     private final JwtService jwtService;
-    private final UserRepository userRepository;
+    private final UserService userService;
     private final PasswordEncoder passwordEncoder;
     private final RateLimiterService rateLimiterService;
 
     public AuthController(
             AuthenticationManager authenticationManager,
             JwtService jwtService,
-            UserRepository userRepository,
+            UserService userService,
             PasswordEncoder passwordEncoder,
             RateLimiterService rateLimiterService
     ) {
         this.authenticationManager = authenticationManager;
         this.jwtService = jwtService;
-        this.userRepository = userRepository;
+        this.userService = userService;
         this.passwordEncoder = passwordEncoder;
         this.rateLimiterService = rateLimiterService;
     }
@@ -79,44 +79,17 @@ public class AuthController {
 
     @PostMapping("/register")
     public ResponseEntity<?> register(@Valid @RequestBody RegisterRequest request) {
-        String username = request.getUsername().trim();
-        String password = request.getPassword();
-        String role = normalizeRole(request.getRole());
-
-        if (userRepository.findByUsername(username).isPresent()) {
-            return ResponseEntity.status(409).body(Map.of("message", "That username is already registered."));
+        try {
+            User user = userService.register(request, passwordEncoder);
+            Authentication auth = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(user.getUsername(), request.getPassword())
+            );
+            UserDetails userDetails = (UserDetails) auth.getPrincipal();
+            String token = jwtService.generateToken(userDetails);
+            return ResponseEntity.ok(new LoginResponse(token, user.getRole()));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(409).body(Map.of("message", e.getMessage()));
         }
-
-        User user = new User();
-        user.setUsername(username);
-        user.setPassword(passwordEncoder.encode(password));
-        user.setEmail(request.getEmail());
-        user.setPhoneNumber(request.getPhoneNumber());
-        user.setNationalId(request.getNationalId());
-        user.setFirstName(request.getFirstName());
-        user.setLastName(request.getLastName());
-        user.setGender(request.getGender());
-        user.setRole(role);
-
-        userRepository.save(user);
-
-        Authentication auth = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(username, password)
-        );
-        UserDetails userDetails = (UserDetails) auth.getPrincipal();
-        String token = jwtService.generateToken(userDetails);
-
-        return ResponseEntity.ok(new LoginResponse(token, role));
-    }
-
-    private String normalizeRole(String requestedRole) {
-        if ("ROLE_ADMIN".equals(requestedRole)) {
-            return "admin";
-        }
-        if ("ROLE_ANALYST".equals(requestedRole)) {
-            return "analyst";
-        }
-        return "manager";
     }
 
     @PostMapping("/forgot-password")
