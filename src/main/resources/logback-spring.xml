@@ -1,49 +1,84 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<configuration>
-    <property name="logPattern" value="%d{yyyy-MM-dd HH:mm:ss} | %-5level | %-15.25thread | %X{dd.user:-anonymous} | %X{dd.executionTime:-0ms} | %X{dd.httpCode:----} | %msg %ex%n" />
+<configuration scan="true" scanPeriod="30 seconds">
 
+    <!--
+        Local dev pattern — human-readable, aligned with actual MDC keys
+        written by MdcFilter (traceId, user, httpCode, executionTime).
+    -->
+    <property name="logPattern"
+              value="%d{yyyy-MM-dd HH:mm:ss} | %-5level | %-25thread | %X{traceId:-no-trace} | %X{user:-anon} | %X{httpCode:---} | %msg %ex%n"/>
+
+    <!--
+        CONSOLE — structured JSON appender for staging / production.
+        Uses LoggingEventCompositeJsonEncoder with logstash-logback-encoder v9.x.
+        All MDC keys are safely serialised via <mdc/> (Jackson-backed, no injection risk).
+        Stack traces are included via <stackTrace> with ShortenedThrowableConverter.
+    -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder class="net.logstash.logback.encoder.LoggingEventCompositeJsonEncoder">
             <providers>
+
+                <!-- ISO-8601 UTC timestamp -->
                 <timestamp>
                     <timeZone>UTC</timeZone>
                     <fieldName>timestamp</fieldName>
                     <pattern>yyyy-MM-dd'T'HH:mm:ss.SSS'Z'</pattern>
                 </timestamp>
+
+                <!-- Level name: INFO, WARN, ERROR, … -->
                 <logLevel>
                     <fieldName>level</fieldName>
                 </logLevel>
+
+                <!-- Numeric level value for log aggregators (Kibana, Graylog) -->
                 <provider class="com.talan.creditplatform.logging.LogLevelValueJsonProvider">
                     <fieldName>level_value</fieldName>
                 </provider>
+
+                <!-- Thread name -->
                 <threadName>
                     <fieldName>thread_name</fieldName>
                 </threadName>
-                <pattern>
-                    <pattern>{"traceId":"%X{traceId:-0}"}</pattern>
-                </pattern>
-                <pattern>
-                    <pattern>{"user":"%X{user:-}"}</pattern>
-                </pattern>
-                <pattern>
-                    <pattern>{"httpCode":"%X{httpCode:-}"}</pattern>
-                </pattern>
+
+                <!-- Fully-qualified logger name -->
+                <loggerName>
+                    <fieldName>logger</fieldName>
+                </loggerName>
+
+                <!--
+                    MDC — captures ALL keys set by MdcFilter (traceId, user, httpCode,
+                    executionTime, executionSpeed, …) using the Jackson serialiser,
+                    which properly escapes special characters. Replaces the unsafe
+                    raw <pattern> string interpolation used previously.
+                -->
+                <mdc/>
+
+                <!-- Application log message (trailing newlines stripped) -->
                 <provider class="com.talan.creditplatform.logging.TrimmedMessageJsonProvider">
                     <fieldName>message</fieldName>
                 </provider>
-                <pattern>
-                    <pattern>{"executionTime":"%X{executionTime:-}"}</pattern>
-                </pattern>
-                <pattern>
-                    <pattern>{"executionSpeed":"%X{executionSpeed:-}"}</pattern>
-                </pattern>
-                <pattern>
-                    <pattern>{"logger":"%logger"}</pattern>
-                </pattern>
+
+                <!--
+                    Stack trace — included only when an exception is attached to the
+                    log event. ShortenedThrowableConverter caps depth and shortens
+                    class names to keep payloads manageable.
+                -->
+                <stackTrace>
+                    <fieldName>stack_trace</fieldName>
+                    <throwableConverter class="net.logstash.logback.stacktrace.ShortenedThrowableConverter">
+                        <maxDepthPerCause>20</maxDepthPerCause>
+                        <shortenedClassNameLength>36</shortenedClassNameLength>
+                        <exclude>sun\.reflect\..*</exclude>
+                        <exclude>java\.lang\.reflect\..*</exclude>
+                        <rootCauseFirst>true</rootCauseFirst>
+                    </throwableConverter>
+                </stackTrace>
+
             </providers>
         </encoder>
     </appender>
 
+    <!-- ── Profile: local (human-readable) ──────────────────────────── -->
     <springProfile name="local">
         <appender name="DEVCONSOLE" class="ch.qos.logback.core.ConsoleAppender">
             <encoder>
@@ -56,14 +91,18 @@
         </root>
     </springProfile>
 
+    <!-- ── Profile: any non-local env (JSON) ────────────────────────── -->
     <springProfile name="!local">
         <root level="INFO">
             <appender-ref ref="CONSOLE"/>
         </root>
     </springProfile>
 
-    <logger name="org.hibernate" level="WARN"/>
-    <logger name="org.hibernate.SQL" level="WARN"/>
-    <logger name="org.hibernate.type.descriptor.sql" level="WARN"/>
-    <logger name="org.zalando.logbook" level="TRACE"/>
+    <!-- ── Noise reduction ───────────────────────────────────────────── -->
+    <logger name="org.hibernate"                       level="WARN"/>
+    <logger name="org.hibernate.SQL"                   level="WARN"/>
+    <logger name="org.hibernate.type.descriptor.sql"   level="WARN"/>
+    <logger name="org.springframework.web"             level="WARN"/>
+    <logger name="org.springframework.security"        level="WARN"/>
+
 </configuration>

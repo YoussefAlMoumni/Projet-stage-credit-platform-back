@@ -16,6 +16,18 @@ public class PipelineOrchestrator {
 
     private static final Logger logger = LoggerFactory.getLogger(PipelineOrchestrator.class);
 
+    private final java.util.concurrent.ConcurrentHashMap<Long, java.util.List<CompletableFuture<?>>> activeTasks = new java.util.concurrent.ConcurrentHashMap<>();
+
+    public void cancelEvaluation(Long dossierId) {
+        java.util.List<CompletableFuture<?>> futures = activeTasks.remove(dossierId);
+        if (futures != null) {
+            logger.info("Cancelling pipeline for dossier {}", dossierId);
+            for (CompletableFuture<?> f : futures) {
+                f.cancel(true);
+            }
+        }
+    }
+
     private final SolvabiliteAgent solvabiliteAgent;
     private final HistoriqueAgent historiqueAgent;
     private final GarantiesAgent garantiesAgent;
@@ -259,10 +271,24 @@ public class PipelineOrchestrator {
 
 
         CompletableFuture<Void> all = CompletableFuture.allOf(f1, f2, f3, f4);
+        
+        activeTasks.put(dossier.getId(), java.util.Arrays.asList(f1, f2, f3, f4, all));
+        
         try {
             all.join();
+        } catch (java.util.concurrent.CancellationException e) {
+            logger.warn("Pipeline stages cancelled for dossier {}", dossier.getId());
+            throw new RuntimeException("Pipeline Cancelled", e);
+        } catch (java.util.concurrent.CompletionException e) {
+            if (e.getCause() instanceof java.util.concurrent.CancellationException) {
+                logger.warn("Pipeline stages cancelled for dossier {}", dossier.getId());
+                throw new RuntimeException("Pipeline Cancelled", e.getCause());
+            }
+            logger.error("Error while running parallel stages (with progress)", e);
         } catch (Exception e) {
             logger.error("Error while running parallel stages (with progress)", e);
+        } finally {
+            activeTasks.remove(dossier.getId());
         }
 
         // Collect and persist outputs individually. Each stage is wrapped in its

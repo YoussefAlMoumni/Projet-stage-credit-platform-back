@@ -15,6 +15,8 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
+import org.springframework.http.client.JdkClientHttpRequestFactory;
+
 @Service
 public class OllamaClient {
 
@@ -22,8 +24,17 @@ public class OllamaClient {
     private final RestClient restClient;
 
     public OllamaClient(@Value("${ollama.api.url}") String ollamaApiUrl) {
+        // Use JdkClientHttpRequestFactory instead of the default HttpURLConnection-based
+        // factory. The Java 11 HttpClient underlying JdkClientHttpRequestFactory
+        // correctly propagates Thread.interrupt(), which causes the HTTP request to
+        // immediately abort when CompletableFuture.cancel(true) is called. The default
+        // factory ignores interrupts, causing Ollama to keep generating even after Stop.
+        JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory();
+        requestFactory.setReadTimeout(java.time.Duration.ofMinutes(5));
+
         this.restClient = RestClient.builder()
                 .baseUrl(ollamaApiUrl)
+                .requestFactory(requestFactory)
                 .build();
     }
 

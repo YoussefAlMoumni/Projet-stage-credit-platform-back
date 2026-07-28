@@ -175,6 +175,20 @@ public class DossierController {
         }
     }
 
+    @PostMapping("/{value}/ai-decision/stop")
+    public ResponseEntity<?> stopAiDecision(@PathVariable String value) {
+        Optional<Dossier> dossierOpt = findBySirenOrId(value);
+        if (dossierOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        try {
+            pipelineOrchestrator.cancelEvaluation(dossierOpt.get().getId());
+            return ResponseEntity.ok(Map.of("message", "Pipeline stopped successfully."));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(Map.of("message", e.getMessage()));
+        }
+    }
+
     @GetMapping(value = "/{value}/ai-decision/stream", produces = org.springframework.http.MediaType.TEXT_EVENT_STREAM_VALUE)
     public org.springframework.web.servlet.mvc.method.annotation.SseEmitter streamAiDecision(@PathVariable String value,
                                                                                              @RequestParam(defaultValue = "FAST") String mode) {
