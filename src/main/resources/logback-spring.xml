@@ -6,7 +6,7 @@
         written by MdcFilter (traceId, user, httpCode, executionTime).
     -->
     <property name="logPattern"
-              value="%d{yyyy-MM-dd HH:mm:ss} | %-5level | %-25thread | %X{traceId:-no-trace} | %X{user:-anon} | %X{httpCode:---} | %msg %ex%n"/>
+              value="%d{HH:mm:ss.SSS} %-5level %logger - %msg%ex%n"/>
 
     <!--
         CONSOLE — structured JSON appender for staging / production.
@@ -78,8 +78,8 @@
         </encoder>
     </appender>
 
-    <!-- ── Profile: local (human-readable) ──────────────────────────── -->
-    <springProfile name="local">
+    <!-- ── Default / local dev: human-readable plain text ──────────── -->
+    <springProfile name="!prod">
         <appender name="DEVCONSOLE" class="ch.qos.logback.core.ConsoleAppender">
             <encoder>
                 <charset>UTF-8</charset>
@@ -91,8 +91,8 @@
         </root>
     </springProfile>
 
-    <!-- ── Profile: any non-local env (JSON) ────────────────────────── -->
-    <springProfile name="!local">
+    <!-- ── Production: structured JSON ─────────────────────────────── -->
+    <springProfile name="prod">
         <root level="INFO">
             <appender-ref ref="CONSOLE"/>
         </root>

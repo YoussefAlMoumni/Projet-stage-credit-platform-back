@@ -2,10 +2,9 @@ package com.talan.creditplatform.logging;
 
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.spi.ILoggingEvent;
-import com.fasterxml.jackson.core.JsonGenerator;
 import net.logstash.logback.composite.AbstractFieldJsonProvider;
-
-import java.io.IOException;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.JsonGenerator;
 
 public class LogLevelValueJsonProvider extends AbstractFieldJsonProvider<ILoggingEvent> {
 
@@ -14,8 +13,11 @@ public class LogLevelValueJsonProvider extends AbstractFieldJsonProvider<ILoggin
     }
 
     @Override
-    public void writeTo(JsonGenerator generator, ILoggingEvent event) throws IOException {
-        generator.writeNumberField(getFieldName(), mapLevel(event.getLevel()));
+    public void writeTo(JsonGenerator generator, ILoggingEvent event) throws JacksonException {
+        // tools.jackson (Jackson 3.x) requires two-step field writing.
+        // writeNumberField(String, int) does not exist in this API version.
+        generator.writeName(getFieldName());
+        generator.writeNumber(mapLevel(event.getLevel()));
     }
 
     private int mapLevel(Level level) {

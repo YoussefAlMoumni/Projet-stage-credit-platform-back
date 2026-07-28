@@ -97,13 +97,6 @@ public class MdcFilter implements Filter {
         }
 
         @Override
-        @SuppressWarnings("deprecation")
-        public void setStatus(int sc, String sm) {
-            this.status = sc;
-            super.setStatus(sc, sm);
-        }
-
-        @Override
         public void sendError(int sc) throws IOException {
             this.status = sc;
             super.sendError(sc);
