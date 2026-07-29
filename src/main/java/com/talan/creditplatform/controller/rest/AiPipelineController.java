@@ -195,9 +195,10 @@ public class AiPipelineController {
             String errorJson = objectMapper.writeValueAsString(
                     Map.of("status", "ERROR", "message", message != null ? message : "Erreur inconnue"));
             emitter.send(SseEmitter.event().name("error").data(errorJson, MediaType.APPLICATION_JSON));
-        } catch (Exception ignored) {
-            // best-effort: if we can't send the error event, fall through to completeWithError
+            emitter.complete(); // Successfully sent error via SSE, gracefully close.
+        } catch (Exception e) {
+            // If we can't send the event (e.g. client disconnected), complete with error
+            emitter.completeWithError(new RuntimeException(message, e));
         }
-        emitter.completeWithError(new RuntimeException(message));
     }
 }
