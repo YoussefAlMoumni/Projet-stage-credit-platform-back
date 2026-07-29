@@ -145,7 +145,7 @@ public class AiPipelineController {
         }
         try {
             pipelineOrchestrator.cancelEvaluation(dossierOpt.get().getId());
-            return ResponseEntity.ok(Map.of("message", "Pipeline stopped successfully."));
+            return ResponseEntity.ok(Map.of("message", "Pipeline arrêté avec succès."));
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body(Map.of("message", e.getMessage()));
         }
@@ -166,7 +166,7 @@ public class AiPipelineController {
         }
         List<Evaluation> evaluations = evaluationRepository.findByDossierIdOrderByCreatedAtDesc(dossierOpt.get().getId());
         if (evaluations.isEmpty()) {
-            return ResponseEntity.ok(Map.of("message", "No evaluations found for this dossier."));
+            return ResponseEntity.ok(Map.of("message", "Aucune évaluation trouvée pour ce dossier."));
         }
         Evaluation latest = evaluations.get(0);
         var stageResults = stageResultRepository.fromEvaluation(latest);
@@ -193,7 +193,7 @@ public class AiPipelineController {
     private void sendErrorEvent(SseEmitter emitter, String message) {
         try {
             String errorJson = objectMapper.writeValueAsString(
-                    Map.of("status", "ERROR", "message", message != null ? message : "Unknown error"));
+                    Map.of("status", "ERROR", "message", message != null ? message : "Erreur inconnue"));
             emitter.send(SseEmitter.event().name("error").data(errorJson, MediaType.APPLICATION_JSON));
         } catch (Exception ignored) {
             // best-effort: if we can't send the error event, fall through to completeWithError

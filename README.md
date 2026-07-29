@@ -1,54 +1,54 @@
-# Intelligent Credit Granting Platform - Backend
+# Plateforme Intelligente d'Octroi de Crédit - Backend
 
-This is the backend for the Intelligent Credit Granting Platform. It is built using **Spring Boot 3** and **Java 21**.
+Il s'agit du backend de la Plateforme Intelligente d'Octroi de Crédit. Il est construit avec **Spring Boot 3** et **Java 21**.
 
-## Key Technologies
+## Technologies Clés
 
 - **Java 21**
 - **Spring Boot 3.5.x** (Web, Data JPA, Security)
-- **PostgreSQL** (Database)
-- **JJWT** (for Authentication)
-- **Ollama** (for local AI model inference)
+- **PostgreSQL** (Base de données)
+- **JJWT** (pour l'Authentification)
+- **Ollama** (pour l'inférence du modèle d'IA local)
 
-## Prerequisites
+## Prérequis
 
-- Java 21+ installed and configured in your `PATH`.
-- Maven (`mvn`) installed.
-- PostgreSQL running locally with a database named `credit_platform`.
-- Ollama running locally for AI features.
+- Java 21+ installé et configuré dans votre `PATH`.
+- Maven (`mvn`) installé.
+- PostgreSQL en cours d'exécution localement avec une base de données nommée `credit_platform`.
+- Ollama en cours d'exécution localement pour les fonctionnalités d'IA.
 
-## Environment Variables
+## Variables d'Environnement
 
-For security reasons, sensitive configuration values are not hardcoded. You **must** provide the following environment variables before starting the application:
+Pour des raisons de sécurité, les valeurs de configuration sensibles ne sont pas codées en dur. Vous **devez** fournir les variables d'environnement suivantes avant de démarrer l'application :
 
-- `DB_USERNAME`: The PostgreSQL database username (e.g., `postgres`).
-- `DB_PASSWORD`: The PostgreSQL database password.
-- `JWT_SECRET`: A secure, Base64-encoded string (at least 32 bytes) for signing JWT tokens.
+- `DB_USERNAME` : Le nom d'utilisateur de la base de données PostgreSQL (ex. : `postgres`).
+- `DB_PASSWORD` : Le mot de passe de la base de données PostgreSQL.
+- `JWT_SECRET` : Une chaîne sécurisée, encodée en Base64 (au moins 32 octets) pour signer les tokens JWT.
 
-## Running the Application
+## Lancer l'Application
 
-1. Open a terminal and navigate to this directory (`projet_stage_back`).
-2. Set the required environment variables.
-3. Start the application using Maven:
+1. Ouvrez un terminal et accédez à ce répertoire (`projet_stage_back`).
+2. Définissez les variables d'environnement requises.
+3. Démarrez l'application avec Maven :
 
 ### Windows (PowerShell)
 ```powershell
 $env:DB_USERNAME="postgres"
-$env:DB_PASSWORD="your_secure_password"
-$env:JWT_SECRET="your_very_long_base64_encoded_secret_key"
+$env:DB_PASSWORD="votre_mot_de_passe_securise"
+$env:JWT_SECRET="votre_cle_secrete_tres_longue_encodee_en_base64"
 mvn spring-boot:run
 ```
 
 ### Linux/macOS
 ```bash
 export DB_USERNAME="postgres"
-export DB_PASSWORD="your_secure_password"
-export JWT_SECRET="your_very_long_base64_encoded_secret_key"
+export DB_PASSWORD="votre_mot_de_passe_securise"
+export JWT_SECRET="votre_cle_secrete_tres_longue_encodee_en_base64"
 ./mvnw spring-boot:run
 ```
 
-The server will start on `http://localhost:8081`.
+Le serveur démarrera sur `http://localhost:8081`.
 
-## AI Integration
+## Intégration de l'IA
 
-This backend relies on **Ollama** to run large language models locally. Ensure that you have the required models downloaded in Ollama (e.g., `deepseek-r1:8b`). If Ollama is not running, the backend will attempt to start it automatically or gracefully handle the error.
+Ce backend s'appuie sur **Ollama** pour exécuter de grands modèles linguistiques localement. Assurez-vous d'avoir téléchargé les modèles requis dans Ollama (ex. : `deepseek-r1:8b`). Si Ollama ne fonctionne pas, le backend tentera de le démarrer automatiquement ou de gérer l'erreur de manière élégante.
